@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kategorije>
+    <kategorija id="kat-01">
+        <naziv>Mlečni izdelki</naziv>
+        <temperaturaC>4.0</temperaturaC>
+        <datumSpremembe>2026-09-01</datumSpremembe>
+        <opomba>Shranjevati na hladnem</opomba>
+    </kategorija>
+    <kategorija id="kat-02">
+        <naziv>Sveža zelenjava</naziv>
+        <temperaturaC>7.0</temperaturaC>
+        <datumSpremembe>2026-09-05</datumSpremembe>
+        <opomba></opomba>
+    </kategorija>
+    <kategorija id="kat-03">
+        <naziv>Meso in perutnina</naziv>
+        <temperaturaC>2.0</temperaturaC>
+        <datumSpremembe>2026-08-20</datumSpremembe>
+        <opomba>Hitro pokvarljivo</opomba>
+    </kategorija>
+    <kategorija id="kat-04">
+        <naziv>Žita in testenine</naziv>
+        <temperaturaC>20.0</temperaturaC>
+        <datumSpremembe>2026-07-15</datumSpremembe>
+        <opomba>Suha shramba</opomba>
+    </kategorija>
+    <kategorija id="kat-05">
+        <naziv>Jajca</naziv>
+        <temperaturaC>5.0</temperaturaC>
+        <datumSpremembe>2026-09-10</datumSpremembe>
+        <opomba></opomba>
+    </kategorija>
+    <kategorija id="kat-06">
+        <naziv>Sveže sadje</naziv>
+        <temperaturaC>10.0</temperaturaC>
+        <datumSpremembe>2026-09-12</datumSpremembe>
+        <opomba>Nekatero sadje ne sodi v hladilnik</opomba>
+    </kategorija>
+    <kategorija id="kat-07">
+        <naziv>Ribe in morski sadeži</naziv>
+        <temperaturaC>1.0</temperaturaC>
+        <datumSpremembe>2026-08-30</datumSpremembe>
+        <opomba>Porabiti v 24-48 urah</opomba>
+    </kategorija>
+    <kategorija id="kat-08">
+        <naziv>Začimbe in omake</naziv>
+        <temperaturaC>18.0</temperaturaC>
+        <datumSpremembe>2026-06-01</datumSpremembe>
+        <opomba></opomba>
+    </kategorija>
+    <kategorija id="kat-09">
+        <naziv>Pekovski izdelki</naziv>
+        <temperaturaC>20.0</temperaturaC>
+        <datumSpremembe>2026-09-18</datumSpremembe>
+        <opomba>Hraniti na suhem mestu</opomba>
+    </kategorija>
+    <kategorija id="kat-10">
+        <naziv>Olja in maščobe</naziv>
+        <temperaturaC>18.0</temperaturaC>
+        <datumSpremembe>2026-05-10</datumSpremembe>
+        <opomba>Zaščititi pred svetlobo</opomba>
+    </kategorija>
+</kategorije>

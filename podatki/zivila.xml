@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zivila>
+    <zivilo id="ziv-01">
+        <naziv>Sveže mleko 3.5%</naziv>
+        <kategorijaId>kat-01</kategorijaId>
+        <kolicina>1.0</kolicina>
+        <enota>l</enota>
+        <rokUporabe>2026-10-23</rokUporabe>
+        <ocenjenaCenaEur>1.29</ocenjenaCenaEur>
+        <datumVnosa>2026-10-18</datumVnosa>
+        <opomba>Hitro porabiti</opomba>
+    </zivilo>
+    <zivilo id="ziv-02">
+        <naziv>Grški jogurt</naziv>
+        <kategorijaId>kat-01</kategorijaId>
+        <kolicina>2.0</kolicina>
+        <enota>kos</enota>
+        <rokUporabe>2026-10-28</rokUporabe>
+        <ocenjenaCenaEur>1.98</ocenjenaCenaEur>
+        <datumVnosa>2026-10-16</datumVnosa>
+        <opomba></opomba>
+    </zivilo>
+    <zivilo id="ziv-03">
+        <naziv>Sir Gauda</naziv>
+        <kategorijaId>kat-01</kategorijaId>
+        <kolicina>0.35</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2026-11-05</rokUporabe>
+        <ocenjenaCenaEur>3.49</ocenjenaCenaEur>
+        <datumVnosa>2026-10-15</datumVnosa>
+        <opomba>Zavito v folijo</opomba>
+    </zivilo>
+    <zivilo id="ziv-04">
+        <naziv>Piščančji zrezki</naziv>
+        <kategorijaId>kat-03</kategorijaId>
+        <kolicina>0.5</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2026-10-21</rokUporabe>
+        <ocenjenaCenaEur>4.89</ocenjenaCenaEur>
+        <datumVnosa>2026-10-19</datumVnosa>
+        <opomba>Prioriteta za kosilo</opomba>
+    </zivilo>
+    <zivilo id="ziv-05">
+        <naziv>Mleto mešano meso</naziv>
+        <kategorijaId>kat-03</kategorijaId>
+        <kolicina>0.6</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2026-10-22</rokUporabe>
+        <ocenjenaCenaEur>5.20</ocenjenaCenaEur>
+        <datumVnosa>2026-10-19</datumVnosa>
+        <opomba>Za bolognese omako</opomba>
+    </zivilo>
+    <zivilo id="ziv-06">
+        <naziv>Paradižnik v grozdu</naziv>
+        <kategorijaId>kat-02</kategorijaId>
+        <kolicina>0.8</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2026-10-25</rokUporabe>
+        <ocenjenaCenaEur>2.10</ocenjenaCenaEur>
+        <datumVnosa>2026-10-17</datumVnosa>
+        <opomba></opomba>
+    </zivilo>
+    <zivilo id="ziv-07">
+        <naziv>Mlada špinača</naziv>
+        <kategorijaId>kat-02</kategorijaId>
+        <kolicina>1.0</kolicina>
+        <enota>kos</enota>
+        <rokUporabe>2026-10-22</rokUporabe>
+        <ocenjenaCenaEur>1.49</ocenjenaCenaEur>
+        <datumVnosa>2026-10-18</datumVnosa>
+        <opomba>Pakiranje 200g</opomba>
+    </zivilo>
+    <zivilo id="ziv-08">
+        <naziv>Rdeča čebula</naziv>
+        <kategorijaId>kat-02</kategorijaId>
+        <kolicina>1.2</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2026-11-20</rokUporabe>
+        <ocenjenaCenaEur>1.35</ocenjenaCenaEur>
+        <datumVnosa>2026-10-10</datumVnosa>
+        <opomba></opomba>
+    </zivilo>
+    <zivilo id="ziv-09">
+        <naziv>Špageti št. 5</naziv>
+        <kategorijaId>kat-04</kategorijaId>
+        <kolicina>2.0</kolicina>
+        <enota>kos</enota>
+        <rokUporabe>2027-04-10</rokUporabe>
+        <ocenjenaCenaEur>2.58</ocenjenaCenaEur>
+        <datumVnosa>2026-09-15</datumVnosa>
+        <opomba>Zaloga v shrambi</opomba>
+    </zivilo>
+    <zivilo id="ziv-10">
+        <naziv>Riž Basmati</naziv>
+        <kategorijaId>kat-04</kategorijaId>
+        <kolicina>1.0</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2027-02-15</rokUporabe>
+        <ocenjenaCenaEur>2.89</ocenjenaCenaEur>
+        <datumVnosa>2026-09-20</datumVnosa>
+        <opomba>Delno porabljeno</opomba>
+    </zivilo>
+    <zivilo id="ziv-11">
+        <naziv>Jajca hlevske reje (M)</naziv>
+        <kategorijaId>kat-05</kategorijaId>
+        <kolicina>8.0</kolicina>
+        <enota>kos</enota>
+        <rokUporabe>2026-11-02</rokUporabe>
+        <ocenjenaCenaEur>2.49</ocenjenaCenaEur>
+        <datumVnosa>2026-10-14</datumVnosa>
+        <opomba>Pakiranje po 10 kosov</opomba>
+    </zivilo>
+    <zivilo id="ziv-12">
+        <naziv>Sveže borovnice</naziv>
+        <kategorijaId>kat-06</kategorijaId>
+        <kolicina>0.25</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2026-10-24</rokUporabe>
+        <ocenjenaCenaEur>2.79</ocenjenaCenaEur>
+        <datumVnosa>2026-10-18</datumVnosa>
+        <opomba>Hitro porabiti za zajtrk</opomba>
+    </zivilo>
+    <zivilo id="ziv-13">
+        <naziv>Sveži lososov file</naziv>
+        <kategorijaId>kat-07</kategorijaId>
+        <kolicina>0.4</kolicina>
+        <enota>kg</enota>
+        <rokUporabe>2026-10-21</rokUporabe>
+        <ocenjenaCenaEur>6.90</ocenjenaCenaEur>
+        <datumVnosa>2026-10-19</datumVnosa>
+        <opomba>Nujno porabiti danes ali jutri</opomba>
+    </zivilo>
+    <zivilo id="ziv-14">
+        <naziv>Toast s semeni</naziv>
+        <kategorijaId>kat-09</kategorijaId>
+        <kolicina>1.0</kolicina>
+        <enota>kos</enota>
+        <rokUporabe>2026-10-26</rokUporabe>
+        <ocenjenaCenaEur>1.65</ocenjenaCenaEur>
+        <datumVnosa>2026-10-16</datumVnosa>
+        <opomba>Zaprto s sponko</opomba>
+    </zivilo>
+    <zivilo id="ziv-15">
+        <naziv>Ekstra deviško oljčno olje</naziv>
+        <kategorijaId>kat-10</kategorijaId>
+        <kolicina>0.75</kolicina>
+        <enota>l</enota>
+        <rokUporabe>2027-08-30</rokUporabe>
+        <ocenjenaCenaEur>8.99</ocenjenaCenaEur>
+        <datumVnosa>2026-08-01</datumVnosa>
+        <opomba></opomba>
+    </zivilo>
+</zivila>

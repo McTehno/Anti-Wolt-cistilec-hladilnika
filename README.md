@@ -135,3 +135,48 @@ Enoten **JSON** dokument, ki ga vrne backend in združuje vse obdelane podatke:
    - Izračun ocene stroška sestavin s podatki SiStat ter izračun prihranka napram povprečni dostavi.
 3. **Uporabniški vmesnik:** Intuitiven vmesnik za hiter vnos živil, prikaz zadetkov z jasnimi oznakami prihranka in hranilnih vrednosti.
 4. **Oddaja in verzioniranje:** Sprotno beleženje napredka z uveljavljanjem sprememb prek sistema Git v repozitoriju.
+
+---
+
+## 7. Praktična naloga: Priprava XML podatkov in aplikacija za obdelavo
+
+V sklopu naloge za obdelavo podatkovnih formatov XML in JSON je implementiran modul za upravljanje z zalogo hladilnika in shrambe.
+
+### 7.1 Struktura pripravljenih XML dokumentov
+
+V mapi `podatki/` se nahajata dve povezani XML datoteki:
+
+1. **`podatki/kategorije.xml`**
+   - Vsebuje 10 kategorij živil (npr. Mlečni izdelki, Sveža zelenjava, Meso in perutnina, Žita in testenine ...).
+   - Vsaka kategorija ima unikaten ID atribut (`kat-01`, `kat-02` ...), priporočeno temperaturo shranjevanja, datum zadnje posodobitve ter morebitno opombo (kjer je pri nekaterih polje prazno).
+2. **`podatki/zivila.xml`**
+   - Vsebuje 15 živil z unikatnimi ID atributi (`ziv-01` do `ziv-15`).
+   - Povezuje se z dokumentom kategorij prek elementa `<kategorijaId>`.
+   - Vključuje količino, enoto mere, ocenjeno ceno v EUR, datum vnosa, rok uporabe (YYYY-MM-DD) ter opombo (z vključenimi praznimi vrednostmi).
+
+### 7.2 Delovanje aplikacije (`main.py`)
+
+Aplikacija je napisana v jeziku Python in omogoča:
+- **Nalaganje in deserializacijo:** Prebere obe XML datoteki ter njuno vsebino pretvori v Python objekte (`Kategorija`, `Zivilo`).
+- **Povezovanje podatkov (relacije):** Živilom na podlagi `kategorijaId` pripne pripadajoči naziv kategorije.
+- **Interaktivno filtriranje:** Uporabnik lahko v konzoli izbere način filtriranja:
+  1. Živila, ki jim kmalu poteče rok uporabe (rok uporabe $\le$ izbrani datum).
+  2. Živila z nizko zalogo (količina pod določeno mejo).
+  3. Živila določene kategorije.
+  4. Prikaz vseh živil.
+- **Pregleden izpis:** Rezultati se izpišejo v konzoli v obliki pregledne tabele.
+- **Izvoz v JSON (`filtrirano.json`):** Filtrirani zapisi se izvozijo v strukturiran JSON format.
+- **Izvoz v XML (`filtrirano.xml`):** Filtrirani zapisi se izvozijo v nov, veljaven XML dokument z obogatenimi podatki.
+
+### 7.3 Navodila za zagon
+
+Za zagon potrebujete le nameščen Python (različica 3.9 ali novejša). Aplikacija uporablja izključno standardne knjižnice (`xml.etree.ElementTree`, `json`, `os`, `sys`, `datetime`), zato dodatna namestitev knjižnic (`pip install`) ni potrebna.
+
+1. Odprite terminal v korenski mapi projekta.
+2. Zaženite program:
+   ```bash
+   python main.py
+   ```
+3. Sledite navodilom na zaslonu:
+   - Izberite številko želenega filtra (1-4) in po potrebi vnesite parameter ali pritisnite `Enter` za privzeto vrednost.
+4. Program bo izpisal tabelo v konzolo ter ustvaril datoteki `filtrirano.json` in `filtrirano.xml`.
