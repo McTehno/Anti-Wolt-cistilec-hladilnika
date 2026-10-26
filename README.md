@@ -180,3 +180,31 @@ Za zagon potrebujete le nameščen Python (različica 3.9 ali novejša). Aplikac
 3. Sledite navodilom na zaslonu:
    - Izberite številko želenega filtra (1-4) in po potrebi vnesite parameter ali pritisnite `Enter` za privzeto vrednost.
 4. Program bo izpisal tabelo v konzolo ter ustvaril datoteki `filtrirano.json` in `filtrirano.xml`.
+
+---
+
+## 8. Praktična naloga: Spletni razčlenjevalnik (Web Scraper & Parser)
+
+V mapi [`recipe_scraper/`](recipe_scraper/) je implementiran namenski spletni razčlenjevalnik za avtomatski zajem slovenskih kulinaričnih receptov iz portala [Kulinarika.net](https://www.kulinarika.net/).
+
+### 8.1 Pomen za projekt Anti-Wolt
+Namesto zanašanja na tuje API storitve (kot je Spoonacular z dnevnimi omejitvami in angleškimi poimenovanji), razčlenjevalnik ustvari lokalno podatkovno bazo pristnih domačih receptov. Ti vsebujejo strukturiran seznam sestavin (količina, enota, živilo), postopek priprave, čas kuhanja in slike, kar omogoča neposredno primerjavo z živili v uporabnikovem hladilniku.
+
+### 8.2 Tehnološki sklad in utemeljitev (BeautifulSoup vs. Puppeteer)
+- **Python + BeautifulSoup4 + Requests:** Celoten projekt je zasnovan v jeziku Python. Ker Kulinarika.net streže vsebino prek SSR (Server-Side Rendering) z bogatimi Schema.org semantičnimi oznakami (`recipeIngredient`, `recipeInstructions`), zagon težkega brskalnika prek Puppeteerja ni potreben. Rešitev z BeautifulSoupom je več desetkrat hitrejša, porabi minimalno sistemskih virov ter omogoča natančno časovno zamikanje med zahtevki.
+
+### 8.3 Struktura modula `recipe_scraper/`
+- [`models.py`](recipe_scraper/models.py): Podatkovna modela `Recipe` in `Ingredient` s podporo za pretvorbo v slovar in JSON.
+- [`parser.py`](recipe_scraper/parser.py): Ekstrakcija podatkov z BeautifulSoupom, normalizacija ulomkov in kulinaričnih merskimi enot (`g`, `dag`, `kg`, `dl`, `žlica` ...).
+- [`scraper.py`](recipe_scraper/scraper.py): Krmilnik s podporo za paginacijo, izbiro kategorij, spoštljivo zakasnitev ter hkraten izvoz v JSON in XML.
+- [`data/recipes.json`](recipe_scraper/data/recipes.json): Zbrana baza receptov v formatu JSON.
+- [`data/recipes.xml`](recipe_scraper/data/recipes.xml): Zbrana baza receptov v formatu XML.
+
+### 8.4 Zagon razčlenjevalnika
+```bash
+# Namestitev odvisnosti
+pip install -r recipe_scraper/requirements.txt
+
+# Zagon strgalnika (privzeto zajame recepte in shrani v recipe_scraper/data/recipes.json)
+python recipe_scraper/scraper.py --limit 50 --xml
+```

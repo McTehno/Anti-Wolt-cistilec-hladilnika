@@ -1,0 +1,10 @@
+#zagon: 
+
+#vsi recepti
+python recipe_scraper/scraper.py --limit 50 --json
+
+#kategorija
+python recipe_scraper/scraper.py --category testenine --limit 20
+
+
+
