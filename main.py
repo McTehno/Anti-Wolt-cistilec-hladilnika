@@ -195,7 +195,7 @@ def filtriraj(zivila):
 
 
 def main():
-    baza_mapa = os.path.join(os.path.dirname(__file__), "podatki")
+    baza_mapa = os.path.join(os.path.dirname(__file__), "data")
     pot_kategorije = os.path.join(baza_mapa, "kategorije.xml")
     pot_zivila = os.path.join(baza_mapa, "zivila.xml")
 
