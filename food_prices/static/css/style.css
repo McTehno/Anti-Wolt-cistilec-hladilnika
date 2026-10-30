@@ -1,0 +1,36 @@
+/* Dodatni stili za nadzorno ploščo Anti-Wolt */
+
+/* Gladki prehodi */
+* {
+    transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+/* Animacija za osveževanje */
+.spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Prilagoditev tabele */
+tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Kartice primerjav */
+.comparison-card {
+    border-left: 4px solid #10b981;
+}
+
+/* Odzivni kontejnerji za grafe */
+canvas {
+    max-width: 100% !important;
+}
+

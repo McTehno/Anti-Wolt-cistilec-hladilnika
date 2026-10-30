@@ -1,0 +1,5 @@
+pyaxis>=0.4.3
+pandas>=2.0.0
+requests>=2.31.0
+flask>=3.0.0
+

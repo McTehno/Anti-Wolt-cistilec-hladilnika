@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Wolt | Statistične cene živil (OPSI & SiStat PCAXIS)</title>
+    <!-- Tailwind CSS CDN za sodoben in odziven izgled -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js za napredno vizualizacijo grafov -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome ikone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- Navigacijska vrstica -->
+    <header class="bg-emerald-700 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white text-emerald-700 rounded-lg p-2 shadow-inner">
+                    <i class="fa-solid fa-utensils text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Anti-Wolt: Čistilec Hladilnika</h1>
+                    <p class="text-xs text-emerald-200">Integracija Odprtih podatkov Slovenije (OPSI) & PCAXIS (.px)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <span id="data-status-badge" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-800 text-emerald-100 border border-emerald-600">
+                    <span class="w-2 h-2 mr-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                    Podatki povezani
+                </span>
+
+                <button id="btn-refresh" class="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-md shadow transition duration-150 focus:outline-none focus:ring-2 focus:ring-white">
+                    <i id="btn-refresh-icon" class="fa-solid fa-arrows-rotate mr-1.5"></i>
+                    <span>Osveži s SiStat</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Glavna vsebina -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow space-y-6 w-full">
+
+        <!-- Uvodna vrstica z informativnimi karticami (KPI) -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Kartica 1: Izvor podatkov -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-lg bg-emerald-100 text-emerald-700">
+                    <i class="fa-solid fa-database text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Vir podatkov</p>
+                    <p class="text-base font-bold text-slate-800">OPSI / SiStat</p>
+                    <p class="text-xs text-slate-500">Tabela SURS: 0411005S.px</p>
+                </div>
+            </div>
+
+            <!-- Kartica 2: Število izdelkov -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-lg bg-blue-100 text-blue-700">
+                    <i class="fa-solid fa-basket-shopping text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spremljana živila</p>
+                    <p id="kpi-products-count" class="text-xl font-bold text-slate-800">167 izdelkov</p>
+                    <p class="text-xs text-slate-500">11 prehranskih skupin</p>
+                </div>
+            </div>
+
+            <!-- Kartica 3: Časovna serija -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-lg bg-amber-100 text-amber-700">
+                    <i class="fa-solid fa-calendar-days text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Časovno obdobje</p>
+                    <p id="kpi-years-range" class="text-xl font-bold text-slate-800">2018 – 2025</p>
+                    <p class="text-xs text-slate-500">Letne povprečne cene</p>
+                </div>
+            </div>
+
+            <!-- Kartica 4: Povprečni prihranek -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-lg bg-rose-100 text-rose-700">
+                    <i class="fa-solid fa-piggy-bank text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Prihranek kuhanja</p>
+                    <p id="kpi-avg-savings" class="text-xl font-bold text-emerald-600">~83.2 %</p>
+                    <p class="text-xs text-slate-500">v primerjavi z dostavo</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Odsek 1: "Anti-Wolt" Primerjalnik (Domača kuhinja vs. Dostava/Gostinstvo) -->
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center">
+                        <i class="fa-solid fa-scale-balanced text-emerald-600 mr-2"></i>
+                        Anti-Wolt Primerjalnik: Domača kuhinja vs. Gostinstvo
+                    </h2>
+                    <p class="text-xs text-slate-500">
+                        Primerjava dejanskih cen surovin v trgovini s primerljivimi obroki v gostinstvu (vir: SiStat)
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="comparison-year-select" class="text-xs font-semibold text-slate-600">Referenčno leto:</label>
+                    <select id="comparison-year-select" class="text-xs font-semibold bg-slate-100 border border-slate-300 rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500">
+                        <!-- Polnjeno dinamično -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6 items-center">
+                <!-- Graf primerjave -->
+                <div class="lg:col-span-7 h-72">
+                    <canvas id="chartComparison"></canvas>
+                </div>
+
+                <!-- Kartice s podrobnostmi prihrankov -->
+                <div class="lg:col-span-5 space-y-3" id="comparison-cards-container">
+                    <!-- Polnjeno dinamično preko JS -->
+                    <div class="text-center py-8 text-slate-400">
+                        <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                        <p class="text-xs mt-2">Nalagam primerjalne podatke ...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Odsek 2: Dva grafa v vrsti (Zgodovina cene posameznega živila & Inflacijski rekorderji) -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Graf 1: Časovni trend izbranega živila -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800 flex items-center">
+                                <i class="fa-solid fa-chart-line text-blue-600 mr-2"></i>
+                                Časovni trend cene živila (2018–2025)
+                            </h3>
+                            <p class="text-xs text-slate-500">Izberite živilo za prikaz zgodovinskega gibanja cene</p>
+                        </div>
+                        <div>
+                            <select id="product-history-select" class="text-xs bg-slate-100 border border-slate-300 rounded-md px-2.5 py-1.5 max-w-[200px] focus:ring-2 focus:ring-blue-500">
+                                <!-- Polnjeno dinamično -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs">
+                        <div>
+                            <span class="text-slate-500">Izdelek:</span>
+                            <span id="history-prod-name" class="font-bold text-slate-800 ml-1">Testenine</span>
+                            <span id="history-prod-unit" class="text-slate-500 text-[11px] ml-1">(kg)</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Sprememba (2018→2025):</span>
+                            <span id="history-prod-change" class="font-bold text-emerald-700 ml-1">+0.00 € (+0.0 %)</span>
+                        </div>
+                    </div>
+
+                    <div class="h-64 mt-4">
+                        <canvas id="chartHistory"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graf 2: Največje podražitve (Rekorderji inflacije) -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800 flex items-center">
+                                <i class="fa-solid fa-arrow-trend-up text-rose-600 mr-2"></i>
+                                Rekorderji podražitev (2018–2025)
+                            </h3>
+                            <p class="text-xs text-slate-500">Živila z največjim odstotnim skokom cene v obdobju</p>
+                        </div>
+                    </div>
+
+                    <div class="h-72 mt-4">
+                        <canvas id="chartInflation"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Odsek 3: Dinamični tabelarični pregledovalnik in iskalnik cen -->
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-4">
+                <div>
+                    <h3 class="text-base font-bold text-slate-800 flex items-center">
+                        <i class="fa-solid fa-filter text-emerald-600 mr-2"></i>
+                        Dinamično filtriranje in pregled cen živil
+                    </h3>
+                    <p class="text-xs text-slate-500">Iščite po imenu živila, filtrirajte po kategoriji ali izberite leto</p>
+                </div>
+
+                <!-- Kontrole za filtriranje -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Leto -->
+                    <div class="flex items-center space-x-1">
+                        <label for="filter-year" class="text-xs font-semibold text-slate-600">Leto:</label>
+                        <select id="filter-year" class="text-xs bg-slate-50 border border-slate-300 rounded-md px-2 py-1.5 focus:ring-emerald-500">
+                            <!-- Polnjeno dinamično -->
+                        </select>
+                    </div>
+
+                    <!-- Kategorija -->
+                    <div class="flex items-center space-x-1">
+                        <label for="filter-category" class="text-xs font-semibold text-slate-600">Kategorija:</label>
+                        <select id="filter-category" class="text-xs bg-slate-50 border border-slate-300 rounded-md px-2 py-1.5 max-w-[200px] focus:ring-emerald-500">
+                            <option value="Vse">Vse prehranske kategorije</option>
+                            <!-- Polnjeno dinamično -->
+                        </select>
+                    </div>
+
+                    <!-- Iskalno polje -->
+                    <div class="relative">
+                        <input type="text" id="filter-search" placeholder="Išči živilo (npr. riž, jajca) ..." 
+                               class="text-xs bg-slate-50 border border-slate-300 rounded-md pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-emerald-500 w-48 sm:w-56">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela podatkov -->
+            <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200 text-xs text-left">
+                    <thead class="bg-slate-100 font-semibold text-slate-700 uppercase tracking-wider">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Živilo / Izdelek</th>
+                            <th scope="col" class="px-4 py-3">Merska enota</th>
+                            <th scope="col" class="px-4 py-3">Prehranska kategorija</th>
+                            <th scope="col" class="px-4 py-3">Leto</th>
+                            <th scope="col" class="px-4 py-3 text-right">Povprečna cena</th>
+                            <th scope="col" class="px-4 py-3 text-center">Akcija</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prices-table-body" class="divide-y divide-slate-100 bg-white">
+                        <!-- Polnjeno dinamično preko JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 px-1">
+                <span id="table-results-count">Prikazujem 0 rezultatov</span>
+                <span>Vir: Statistični urad RS (format PCAXIS razčlenjen s pyaxis)</span>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Noga strani -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-5 mt-auto border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+                <p class="font-medium text-slate-300">Anti-Wolt: Čistilec Hladilnika &copy; 2026</p>
+                <p class="text-[11px] text-slate-500">Predmet: Tehnologije Digitalizacije in Integracije Storitev (TIDS), UM FERI</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="https://podatki.gov.si/" target="_blank" class="hover:text-emerald-400 transition">Portal OPSI</a>
+                <span class="text-slate-600">•</span>
+                <a href="https://pxweb.stat.si/SiStat/sl" target="_blank" class="hover:text-emerald-400 transition">SURS SiStat</a>
+                <span class="text-slate-600">•</span>
+                <span class="text-emerald-500 font-mono">pyaxis 0.4.3</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Skripta nadzorne plošče -->
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
+

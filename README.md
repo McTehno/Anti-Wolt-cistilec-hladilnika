@@ -208,3 +208,38 @@ pip install -r recipe_scraper/requirements.txt
 # Zagon strgalnika (privzeto zajame recepte in shrani v recipe_scraper/data/recipes.json)
 python recipe_scraper/scraper.py --limit 50 --xml
 ```
+
+---
+
+## 9. Praktična naloga: Odprti podatki Slovenije (OPSI), PCAXIS in dinamična vizualizacija
+
+V mapi [`food_prices/`](food_prices/) je implementiran modul za integracijo nacionalnih odprtih podatkov iz portala [OPSI (podatki.gov.si)](https://podatki.gov.si/) in baze **SiStat (SURS)** v mednarodnem statističnem formatu **PCAXIS (`.px`)**.
+
+### 9.1 Pomen za projekt Anti-Wolt
+Za uresničitev ključne funkcionalnosti aplikacije – ocene finančnega prihranka pri kuhanju doma napram naročanju dostave hrane (Wolt/Glovo) – modul analizira uradne povprečne drobnoprodajne cene osnovnih živil in gostinskih storitev v Sloveniji (tabela `0411005S.px`).
+
+### 9.2 Tehnologije in format PCAXIS
+- **PCAXIS (`.px`):** Standardizirani format statističnih uradov, ki v enotni datoteki združuje večdimenzionalno matriko vrednosti in bogate metapodatke (kodne tabele, opise spremenljivk, merske enote, časovne žige).
+- **`pyaxis`:** Specializirana Python knjižnica za neposredno razčlenjevanje `.px` datotek v podatkovni okvir `pandas.DataFrame`.
+- **Flask REST API:** Zagotavlja dinamične končne točke za filtriranje podatkov po kategorijah živil, letih (2018–2025) in iskalnih poizvedbah.
+- **Chart.js:** Izris dinamičnih grafov v brskalniku ob nalaganju strani (`DOMContentLoaded` prek `fetch()`):
+  1. *Anti-Wolt primerjalni graf:* Domača priprava obroka vs. gostinska porcija/dostava (testenine, pica, kosilo, kava).
+  2. *Časovni trend živila:* Gibanje cene posameznega živila v obdobju 2018–2025.
+  3. *Rekorderji inflacije:* Vodoravni stolpčni diagram živil z največjo odstotno podražitvijo.
+  4. *Interaktivna tabela:* Dinamično iskanje in filtriranje cen v realnem času.
+
+### 9.3 Struktura modula `food_prices/`
+- [`client.py`](food_prices/client.py): Odjemalec za prenos datoteke `0411005S.px` prek SiStat PxWeb API s samodejnim predpomnjenjem.
+- [`processor.py`](food_prices/processor.py): Razčlenjevalnik s `pyaxis`, kategorizacija po COICOP, filtriranje, agregacije inflacije in izračun Anti-Wolt prihrankov.
+- [`app.py`](food_prices/app.py): Flask spletni strežnik z REST API končnimi točkami (`/api/prices`, `/api/history`, `/api/comparison`, `/api/inflation`, `/api/refresh`).
+- [`templates/index.html`](food_prices/templates/index.html): Sodobna odzivna nadzorna plošča z grafi Chart.js in Tailwind CSS.
+- [`static/js/dashboard.js`](food_prices/static/js/dashboard.js): Asinhrono krmiljenje grafov in interaktivnih filtrov.
+
+### 9.4 Zagon aplikacije in vizualizacije
+```bash
+# Namestitev odvisnosti
+pip install -r food_prices/requirements.txt
+
+# Zagon spletne nadzorne plošče (dostopno na http://127.0.0.1:5000)
+python -m food_prices.app
+```
