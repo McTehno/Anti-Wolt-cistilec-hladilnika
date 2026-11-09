@@ -243,3 +243,30 @@ pip install -r food_prices/requirements.txt
 # Zagon spletne nadzorne plošče (dostopno na http://127.0.0.1:5000)
 python -m food_prices.app
 ```
+
+---
+
+## 10. Praktična naloga: Integracija z velikimi jezikovnimi modeli (LLM) prek OpenRouter
+
+V sklopu naloge za integracijo podatkov pridobljenih od ponudnika LLM je implementiran kulinarični svetovalec **Anti-Wolt AI Chef** v modulu [`food_prices/ai_advisor.py`](food_prices/ai_advisor.py).
+
+### 10.1 Pomen za projekt Anti-Wolt
+Namesto statičnih receptov uporabnik v spletni vmesnik vnese sestavine, ki jih ima trenutno v hladilniku. LLM dinamično predlaga recept, ki zmanjšuje zavrženo hrano ter izračuna oceno prihranka kuhanja doma napram naročilu dostave prek platform Wolt ali Glovo.
+
+### 10.2 Izpolnitev zahtev naloge
+1. **Dinamično sestavljen prompt:**
+   - Prompt se generira na strežniku ob vsakem zahtevku na podlagi vnesenih sestavin, izbranega časa kuhanja, števila porcij, tipa obroka in prehranske preference.
+   - Kot dinamični kontekst se v brskalniku zajema trenuten lokalni čas in dan v tednu (npr. *Ponedeljek, 16:55 (popoldan)*), ki se posreduje modelu za prilagoditev predloga (npr. zjutraj predlaga zajtrk, popoldan kosilo, zvečer večerjo).
+2. **Uporaba storitve OpenRouter in brezplačnega modela:**
+   - Uporabljen je model **`nvidia/nemotron-3-ultra-550b-a55b`**.
+   - API ključ se varno bere iz datoteke `.env` (`OPENROUTER_API_KEY`).
+3. **Format JSON in deserializacija v Python razred:**
+   - Zahteva po strukturiranem odgovoru se izvaja prek `response_format={"type": "json_object"}` ter podrobne sheme v sistemskem navodilu.
+   - Prejeti JSON se na strežniku varno deserializira v primerek razreda **`AiRecipeRecommendation`** z vsemi numeričnimi pretvorbami (čas, porcije, strošek v EUR, prihranek v EUR) in seznami (uporabljene sestavine, dodatki, koraki priprave).
+   - Rezultat se nato posreduje spletnemu vmesniku ter asinhrono upodobi v namenski kartici z uporabo Tailwind CSS in FontAwesome ikon.
+
+### 10.3 REST API točka
+- **Endpoint:** `POST /api/ai-recipe`
+- **Vhod (JSON):** `{"ingredients": "...", "max_time": 20, "servings": 2, "meal_type": "...", "diet": "...", "client_context": "..."}`
+- **Izhod (JSON):** Deserializiran objekt razreda `AiRecipeRecommendation`.
+

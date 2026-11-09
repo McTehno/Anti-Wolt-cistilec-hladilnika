@@ -20,13 +20,13 @@ let appMetadata = null;
 // Ob zagonu dokumenta (DOMContentLoaded)
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("Inicializacija nadzorne plošče Anti-Wolt ...");
-    
+
     // 1. Naloži začetne metapodatke (leta, kategorije)
     await initMetadataAndFilters();
 
     // 2. Dinamično napolni grafe in tabelo ob nalaganju
     const defaultYear = appMetadata && appMetadata.years ? appMetadata.years[appMetadata.years.length - 1] : 2025;
-    
+
     await Promise.all([
         loadAntiWoltComparison(defaultYear),
         loadInflationLeaders(2018, defaultYear),
@@ -45,7 +45,7 @@ async function initMetadataAndFilters() {
     try {
         const response = await fetch('/api/metadata');
         const json = await response.json();
-        
+
         if (json.status !== 'success') {
             throw new Error(json.message || "Neuspešen klic metapodatkov");
         }
@@ -128,7 +128,7 @@ async function loadAntiWoltComparison(year) {
     try {
         const response = await fetch(`/api/comparison?year=${year}`);
         const res = await response.json();
-        
+
         if (res.status !== 'success') return;
         const data = res.data;
 
@@ -175,7 +175,7 @@ async function loadAntiWoltComparison(year) {
  */
 function renderComparisonChart(labels, homeCosts, restCosts, year) {
     const ctx = document.getElementById('chartComparison').getContext('2d');
-    
+
     if (chartComparisonInstance) {
         chartComparisonInstance.destroy();
     }
@@ -213,7 +213,7 @@ function renderComparisonChart(labels, homeCosts, restCosts, year) {
                 },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             return ` ${context.dataset.label}: ${context.parsed.y.toFixed(2)} €`;
                         }
                     }
@@ -244,7 +244,7 @@ async function loadProductHistory(productName) {
     try {
         const response = await fetch(`/api/history?product=${encodeURIComponent(productName)}`);
         const res = await response.json();
-        
+
         if (res.status !== 'success' || !res.data.found) {
             console.warn("Izdelek ni bil najden:", productName);
             return;
@@ -255,11 +255,11 @@ async function loadProductHistory(productName) {
         // Posodobi informativno vrstico
         document.getElementById('history-prod-name').textContent = data.product_name;
         document.getElementById('history-prod-unit').textContent = `(${data.unit})`;
-        
+
         const sign = data.diff_eur >= 0 ? '+' : '';
         const changeSpan = document.getElementById('history-prod-change');
         changeSpan.textContent = `${sign}${data.diff_eur.toFixed(2)} € (${sign}${data.diff_pct.toFixed(1)} %)`;
-        
+
         if (data.diff_eur > 0) {
             changeSpan.className = 'font-bold text-rose-600 ml-1 font-mono';
         } else {
@@ -369,7 +369,7 @@ async function loadInflationLeaders(startYear = 2018, endYear = 2025) {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: function(ctx) {
+                            label: function (ctx) {
                                 const item = items[ctx.dataIndex];
                                 return ` Rast: +${ctx.parsed.x.toFixed(1)}% (${item.start_price.toFixed(2)}€ → ${item.end_price.toFixed(2)}€)`;
                             }
@@ -538,5 +538,234 @@ function setupEventListeners() {
             refreshIcon.classList.remove('spinning');
         }
     });
+
+    // 5. Inicializacija in povezava AI Kulinaričnega asistenta (LLM)
+    initAiAdvisor();
 }
+
+/**
+ * Pridobi opis trenutnega lokalnega časa in dneva v brskalniku za kontekstualno
+ * obogatitev dinamičnega LLM prompta.
+ * 
+ * Ta funkcija izpolnjuje zahtevo po zbiranju spreminjajočih se kontekstualnih podatkov
+ * (čas v brskalniku), kar modelu omogoča, da npr. zjutraj predlaga zajtrk, opoldne kosilo ipd.
+ */
+function getClientTimeContext() {
+    const now = new Date();
+    const days = ['Nedelja', 'Ponedeljek', 'Torek', 'Sreda', 'Četrtek', 'Petek', 'Sobota'];
+    const dayName = days[now.getDay()];
+    const hours = now.getHours().toString().padStart(2, '0');
+    const mins = now.getMinutes().toString().padStart(2, '0');
+
+    let period = 'popoldan';
+    const h = now.getHours();
+    if (h < 10) period = 'zgodaj zjutraj';
+    else if (h < 12) period = 'dopoldan';
+    else if (h < 15) period = 'čas kosila';
+    else if (h < 18) period = 'popoldan';
+    else if (h < 22) period = 'večer';
+    else period = 'pozna noč';
+
+    return `${dayName}, ${hours}:${mins} (${period})`;
+}
+
+/**
+ * Nastavi poslušalce in logiko za interaktivni odsek Anti-Wolt AI Chef.
+ */
+function initAiAdvisor() {
+    // 1. Zaznaj in prikaži trenutni časovni kontekst
+    const contextDisplay = document.getElementById('ai-context-display');
+    if (contextDisplay) {
+        contextDisplay.textContent = getClientTimeContext();
+    }
+
+    // 2. Poslušalci za hitre značke sestavin (Quick pills)
+    const quickButtons = document.querySelectorAll('.btn-quick-ing');
+    const ingredientsTextarea = document.getElementById('ai-input-ingredients');
+
+    quickButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ingredient = btn.getAttribute('data-ingredient');
+            if (!ingredient) return;
+
+            let currentText = ingredientsTextarea.value.trim();
+            if (currentText.length > 0) {
+                // Če sestavina še ni vpisana, jo dodamo z vejico
+                if (!currentText.toLowerCase().includes(ingredient.toLowerCase())) {
+                    ingredientsTextarea.value = `${currentText}, ${ingredient}`;
+                }
+            } else {
+                ingredientsTextarea.value = ingredient;
+            }
+            ingredientsTextarea.focus();
+        });
+    });
+
+    // 3. Poslušalec za oddajo obrazca za generiranje recepta z AI
+    const form = document.getElementById('ai-recipe-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        // Preprečimo privzeto ponovno nalaganje strani
+        e.preventDefault();
+
+        const ingredients = ingredientsTextarea.value.trim();
+        if (!ingredients) {
+            alert("Prosimo, vnesite vsaj eno sestavino, ki jo imate na voljo v hladilniku.");
+            ingredientsTextarea.focus();
+            return;
+        }
+
+        const maxTime = document.getElementById('ai-select-time').value;
+        const servings = document.getElementById('ai-select-servings').value;
+        const mealType = document.getElementById('ai-select-meal').value;
+        const diet = document.getElementById('ai-select-diet').value;
+        const clientContext = getClientTimeContext();
+
+        // Elementi uporabniškega vmesnika za preklop stanj
+        const placeholderCard = document.getElementById('ai-placeholder-card');
+        const loadingCard = document.getElementById('ai-loading-card');
+        const contentCard = document.getElementById('ai-card-content');
+        const submitBtn = document.getElementById('btn-submit-ai');
+        const btnText = document.getElementById('btn-ai-text');
+        const btnIcon = document.getElementById('btn-ai-icon');
+
+        // Preklop v stanje nalaganja
+        placeholderCard.classList.add('hidden');
+        contentCard.classList.add('hidden');
+        loadingCard.classList.remove('hidden');
+
+        submitBtn.disabled = true;
+        btnText.textContent = "AI razmišlja ...";
+        btnIcon.className = "fa-solid fa-spinner fa-spin mr-2 text-sm";
+
+        try {
+            // Sestavimo dinamično JSON telo za POST zahtevek
+            const payload = {
+                ingredients: ingredients,
+                max_time: maxTime,
+                servings: servings,
+                meal_type: mealType,
+                diet: diet,
+                client_context: clientContext
+            };
+
+            const response = await fetch('/api/ai-recipe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.status !== 'success') {
+                throw new Error(result.message || "Prišlo je do napake pri generiranju recepta.");
+            }
+
+            // Podatki so uspešno deserializirani v razred AiRecipeRecommendation na backendu
+            const recipe = result.data;
+
+            // Napolnimo HTML elemente z vsebino
+            document.getElementById('ai-recipe-title').textContent = recipe.ime_jedi;
+            document.getElementById('ai-recipe-desc').textContent = recipe.kratek_opis;
+            document.getElementById('ai-recipe-difficulty').textContent = recipe.zahtevnost;
+            document.getElementById('ai-recipe-portions').textContent = `${recipe.porcije} ${recipe.porcije === 1 ? 'porcija' : recipe.porcije === 2 ? 'porciji' : 'porcije'}`;
+            document.getElementById('ai-recipe-time').textContent = `${recipe.cas_priprave_min} min`;
+            document.getElementById('ai-recipe-cost').textContent = `~${recipe.ocena_stroska_doma_eur.toFixed(2)} €`;
+
+            // Prikaz prihranka s plusom in zeleno barvo
+            const savingsElem = document.getElementById('ai-recipe-savings');
+            savingsElem.textContent = `+${recipe.ocena_prihranka_napram_dostavi_eur.toFixed(2)} €`;
+
+            // Porabljene sestavine iz hladilnika (zelene kljukice)
+            const usedList = document.getElementById('ai-recipe-used-ingredients');
+            usedList.innerHTML = '';
+            if (recipe.uporabljene_sestavine && recipe.uporabljene_sestavine.length > 0) {
+                recipe.uporabljene_sestavine.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start';
+                    li.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 mr-2 text-xs flex-shrink-0"></i><span>${escapeHtml(item)}</span>`;
+                    usedList.appendChild(li);
+                });
+            } else {
+                usedList.innerHTML = '<li class="text-slate-400 italic">Vse navedene sestavine</li>';
+            }
+
+            // Dodatne sestavine / iz shrambe
+            const extraList = document.getElementById('ai-recipe-extra-ingredients');
+            extraList.innerHTML = '';
+            if (recipe.dodatne_sestavine && recipe.dodatne_sestavine.length > 0) {
+                recipe.dodatne_sestavine.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start';
+                    li.innerHTML = `<i class="fa-solid fa-plus text-amber-500 mt-0.5 mr-2 text-xs flex-shrink-0"></i><span>${escapeHtml(item)}</span>`;
+                    extraList.appendChild(li);
+                });
+            } else {
+                extraList.innerHTML = '<li class="text-slate-400 italic">Ni potrebnih dodatnih sestavin</li>';
+            }
+
+            // Zero waste nasvet
+            document.getElementById('ai-recipe-zerowaste-text').textContent = recipe.nasvet_zero_waste || "Hrano porabite pravočasno za zmanjšanje odpadkov.";
+
+            // Postopek priprave po korakih
+            const stepsList = document.getElementById('ai-recipe-steps');
+            stepsList.innerHTML = '';
+            if (recipe.postopek && recipe.postopek.length > 0) {
+                recipe.postopek.forEach((step, idx) => {
+                    // Očistimo morebitno številko na začetku koraka (npr. "1. Narežite..." -> "Narežite...")
+                    const cleanStep = step.replace(/^\d+[\.\)]\s*/, '');
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start space-x-2.5';
+                    li.innerHTML = `
+                        <span class="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[11px] flex items-center justify-center border border-emerald-300">
+                            ${idx + 1}
+                        </span>
+                        <span class="text-slate-800 leading-relaxed text-xs">${escapeHtml(cleanStep)}</span>
+                    `;
+                    stepsList.appendChild(li);
+                });
+            }
+
+            // Časovna značka generiranja
+            const timeElem = document.getElementById('ai-recipe-timestamp');
+            if (timeElem) {
+                timeElem.textContent = `Ustvarjeno: ${recipe.cas_generiranja || new Date().toLocaleTimeString()}`;
+            }
+
+            // Pokaži kartico z receptom
+            loadingCard.classList.add('hidden');
+            contentCard.classList.remove('hidden');
+
+            // Pomakni pogled do rezultata
+            contentCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        } catch (err) {
+            console.error("Napaka pri klicu AI svetovalca:", err);
+            alert(`Napaka pri generiranju AI recepta:\n${err.message}`);
+            loadingCard.classList.add('hidden');
+            placeholderCard.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+            btnText.textContent = "Generiraj recept z AI";
+            btnIcon.className = "fa-solid fa-wand-magic-sparkles mr-2 text-sm";
+        }
+    });
+}
+
+/**
+ * Pomožna funkcija za varno ubežanje nevarnih znakov v HTML (preprečitev XSS).
+ */
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 

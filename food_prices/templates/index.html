@@ -95,6 +95,249 @@
             </div>
         </section>
 
+        <!-- Odsek 0: Anti-Wolt AI Chef (Generiranje receptov iz ostankov s pomočjo LLM) -->
+        <section class="bg-gradient-to-br from-white to-emerald-50/40 p-6 rounded-xl shadow-sm border border-emerald-200">
+            <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-emerald-100 gap-3">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1.5 text-emerald-600"></i> Pametni kuharski asistent
+                        </span>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center mt-1.5">
+                        Anti-Wolt Chef: Kaj skuhati iz ostankov v hladilniku?
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Vnesite razpoložljiva živila in asistent vam bo predlagal recept za zmanjšanje zavržene hrane ter prihranek denarja.
+                    </p>
+                </div>
+
+                <!-- Dinamični kontekst okolja (avtomatsko zaznan v brskalniku) -->
+                <div class="bg-white/90 border border-emerald-200 rounded-lg px-3 py-1.5 shadow-sm text-xs text-slate-600 flex items-center space-x-2 self-start md:self-auto">
+                    <i class="fa-regular fa-clock text-emerald-600"></i>
+                    <div>
+                        <span class="font-semibold text-slate-700">Kontekst:</span>
+                        <span id="ai-context-display" class="text-emerald-700 font-medium">Zaznavam čas brskalnika...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Obrazec z dinamičnimi vhodnimi podatki -->
+            <form id="ai-recipe-form" class="mt-5 space-y-4">
+                <!-- Vnos sestavin -->
+                <div>
+                    <label for="ai-input-ingredients" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        1. Sestavine v hladilniku ali shrambi (ločene z vejico) *
+                    </label>
+                    <div class="relative">
+                        <textarea id="ai-input-ingredients" rows="2" 
+                                  placeholder="npr. 3 jajca, pol hlebca starega kruha, kos sira, 2 paradižnika, malo mleka..." 
+                                  class="w-full text-xs bg-white border border-slate-300 rounded-lg p-3 pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"></textarea>
+                        <i class="fa-solid fa-carrot absolute right-3 top-3 text-slate-400 text-sm pointer-events-none"></i>
+                    </div>
+
+                    <!-- Hitre značke (Quick pills) za enostaven klik -->
+                    <div class="flex flex-wrap items-center gap-1.5 mt-2 text-xs">
+                        <span class="text-slate-400 text-[11px] font-medium mr-1">Hitro dodaj:</span>
+                        <button type="button" class="btn-quick-ing px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 rounded text-[11px] border border-slate-200 transition" data-ingredient="star kruh">+ star kruh</button>
+                        <button type="button" class="btn-quick-ing px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 rounded text-[11px] border border-slate-200 transition" data-ingredient="jajca">+ jajca</button>
+                        <button type="button" class="btn-quick-ing px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 rounded text-[11px] border border-slate-200 transition" data-ingredient="sir">+ sir</button>
+                        <button type="button" class="btn-quick-ing px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 rounded text-[11px] border border-slate-200 transition" data-ingredient="testenine">+ testenine</button>
+                        <button type="button" class="btn-quick-ing px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 rounded text-[11px] border border-slate-200 transition" data-ingredient="paradižnik">+ paradižnik</button>
+                        <button type="button" class="btn-quick-ing px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 rounded text-[11px] border border-slate-200 transition" data-ingredient="riž">+ riž</button>
+                        <button type="button" class="btn-quick-ing px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 rounded text-[11px] border border-slate-200 transition" data-ingredient="mleko">+ mleko</button>
+                    </div>
+                </div>
+
+                <!-- Dodatni filtri / Dropdowni -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                    <!-- Čas priprave -->
+                    <div>
+                        <label for="ai-select-time" class="block text-xs font-semibold text-slate-600 mb-1">
+                            <i class="fa-solid fa-stopwatch text-slate-400 mr-1"></i> Čas kuhanja:
+                        </label>
+                        <select id="ai-select-time" class="w-full text-xs bg-white border border-slate-300 rounded-md px-2.5 py-2 focus:ring-2 focus:ring-emerald-500">
+                            <option value="15">Zelo hitro (do 15 min)</option>
+                            <option value="30" selected>Zmerno (do 30 min)</option>
+                            <option value="45">Daljše (do 45 min)</option>
+                            <option value="">Brez časovne omejitve</option>
+                        </select>
+                    </div>
+
+                    <!-- Število oseb -->
+                    <div>
+                        <label for="ai-select-servings" class="block text-xs font-semibold text-slate-600 mb-1">
+                            <i class="fa-solid fa-users text-slate-400 mr-1"></i> Število porcij:
+                        </label>
+                        <select id="ai-select-servings" class="w-full text-xs bg-white border border-slate-300 rounded-md px-2.5 py-2 focus:ring-2 focus:ring-emerald-500">
+                            <option value="1">1 oseba (solo)</option>
+                            <option value="2" selected>2 osebi (par)</option>
+                            <option value="4">4 osebe (družina)</option>
+                            <option value="6">6+ oseb (skupina)</option>
+                        </select>
+                    </div>
+
+                    <!-- Tip obroka -->
+                    <div>
+                        <label for="ai-select-meal" class="block text-xs font-semibold text-slate-600 mb-1">
+                            <i class="fa-solid fa-bowl-food text-slate-400 mr-1"></i> Tip obroka:
+                        </label>
+                        <select id="ai-select-meal" class="w-full text-xs bg-white border border-slate-300 rounded-md px-2.5 py-2 focus:ring-2 focus:ring-emerald-500">
+                            <option value="Vseeno" selected>Vseeno (karkoli okusnega)</option>
+                            <option value="Zajtrk / Brunch">Zajtrk / Brunch</option>
+                            <option value="Hitro kosilo">Hitro kosilo</option>
+                            <option value="Topla večerja">Topla večerja</option>
+                            <option value="Prigrizek / Malica">Prigrizek / Malica</option>
+                        </select>
+                    </div>
+
+                    <!-- Prehranska preferenca -->
+                    <div>
+                        <label for="ai-select-diet" class="block text-xs font-semibold text-slate-600 mb-1">
+                            <i class="fa-solid fa-leaf text-slate-400 mr-1"></i> Prehrana:
+                        </label>
+                        <select id="ai-select-diet" class="w-full text-xs bg-white border border-slate-300 rounded-md px-2.5 py-2 focus:ring-2 focus:ring-emerald-500">
+                            <option value="Brez omejitev" selected>Brez omejitev</option>
+                            <option value="Vegetarijansko">Vegetarijansko</option>
+                            <option value="Vegansko">Vegansko</option>
+                            <option value="Brez glutena">Brez glutena</option>
+                            <option value="Visokoproteinsko / Fit">Visokoproteinsko / Fit</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Gumb za generiranje -->
+                <div class="pt-2 flex items-center justify-between flex-wrap gap-3">
+                    <p class="text-[11px] text-slate-500 italic">
+                        * Predlog se samodejno prilagodi vnesenim sestavinam, izbranemu času in delu dneva.
+                    </p>
+
+                    <button type="submit" id="btn-submit-ai" 
+                            class="inline-flex items-center px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-md hover:shadow-lg transition duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                        <i id="btn-ai-icon" class="fa-solid fa-wand-magic-sparkles mr-2 text-sm"></i>
+                        <span id="btn-ai-text">Generiraj recept z AI</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Območje z rezultatom (Rezultat AI klica) -->
+            <div id="ai-result-wrapper" class="mt-6 border-t border-emerald-100 pt-5">
+                <!-- Začetno stanje (prazno) -->
+                <div id="ai-placeholder-card" class="bg-white/80 rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-400">
+                    <i class="fa-solid fa-kitchen-set text-3xl mb-2 text-slate-300"></i>
+                    <p class="text-xs font-semibold text-slate-600">Še niste generirali recepta</p>
+                    <p class="text-[11px] text-slate-400 mt-1 max-w-md mx-auto">
+                        Vnesite sestavine iz vašega hladilnika ter kliknite gumb zgoraj. Asistent bo pripravil predlog jedi z izračunom prihranka kuhanja doma napram dostavi!
+                    </p>
+                </div>
+
+                <!-- Stanje nalaganja (Spinner) -->
+                <div id="ai-loading-card" class="hidden bg-white rounded-xl border border-emerald-200 p-10 text-center text-slate-600">
+                    <div class="inline-block p-4 rounded-full bg-emerald-50 text-emerald-600 mb-3 animate-bounce">
+                        <i class="fa-solid fa-utensils text-2xl"></i>
+                    </div>
+                    <p class="text-sm font-bold text-slate-800">Kuharski asistent pripravlja recept ...</p>
+                    <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        Analiziramo sestavine v hladilniku ter iščemo najboljši način za okusen domač obrok in prihranek denarja.
+                    </p>
+                    <div class="mt-4 flex justify-center">
+                        <div class="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                </div>
+
+                <!-- Kartica generiranega recepta -->
+                <div id="ai-card-content" class="hidden bg-white rounded-xl border border-emerald-200 shadow-sm p-6 space-y-5">
+                    <!-- Glava recepta z nazivom in KPI-ji -->
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-slate-100 gap-4">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span id="ai-recipe-difficulty" class="px-2 py-0.5 bg-blue-100 text-blue-700 font-semibold rounded text-[11px]">Enostavno</span>
+                                <span class="text-xs text-slate-400">•</span>
+                                <span id="ai-recipe-portions" class="text-xs text-slate-500 font-medium">2 porciji</span>
+                            </div>
+                            <h3 id="ai-recipe-title" class="text-xl font-bold text-slate-900 mt-1">Domača poslastica</h3>
+                            <p id="ai-recipe-desc" class="text-xs text-slate-600 mt-0.5">Opis jedi</p>
+                        </div>
+
+                        <!-- Finančni KPI-ji prihranka -->
+                        <div class="flex items-center space-x-3 bg-emerald-50/70 border border-emerald-200 rounded-xl p-3">
+                            <div class="text-center px-2 border-r border-emerald-200">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Čas priprave</p>
+                                <p id="ai-recipe-time" class="text-base font-extrabold text-slate-800">20 min</p>
+                            </div>
+                            <div class="text-center px-2 border-r border-emerald-200">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Strošek doma</p>
+                                <p id="ai-recipe-cost" class="text-base font-extrabold text-blue-700">~2.20 €</p>
+                            </div>
+                            <div class="text-center px-2">
+                                <p class="text-[10px] uppercase font-bold text-emerald-700">Prihranek kuhanja</p>
+                                <p id="ai-recipe-savings" class="text-base font-extrabold text-emerald-600">+8.50 €</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dve koloni: Sestavine & Postopek -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <!-- Leva kolona: Sestavine in Zero-Waste nasvet -->
+                        <div class="lg:col-span-5 space-y-4">
+                            <!-- Porabljene sestavine iz hladilnika -->
+                            <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200">
+                                <h4 class="text-xs font-bold text-slate-700 flex items-center uppercase tracking-wider mb-2">
+                                    <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i>
+                                    Porabljene sestavine iz hladilnika:
+                                </h4>
+                                <ul id="ai-recipe-used-ingredients" class="space-y-1 text-xs text-slate-700">
+                                    <!-- Dinamično -->
+                                </ul>
+                            </div>
+
+                            <!-- Dodatne sestavine / iz shrambe -->
+                            <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200">
+                                <h4 class="text-xs font-bold text-slate-700 flex items-center uppercase tracking-wider mb-2">
+                                    <i class="fa-solid fa-mortar-pestle text-amber-600 mr-1.5"></i>
+                                    Dodatki iz shrambe (začimbe, olje...):
+                                </h4>
+                                <ul id="ai-recipe-extra-ingredients" class="space-y-1 text-xs text-slate-700">
+                                    <!-- Dinamično -->
+                                </ul>
+                            </div>
+
+                            <!-- Zero Waste nasvet -->
+                            <div class="bg-amber-50/70 rounded-lg p-3.5 border border-amber-200 text-xs">
+                                <h4 class="font-bold text-amber-800 flex items-center mb-1">
+                                    <i class="fa-solid fa-recycle text-amber-600 mr-1.5"></i>
+                                    Anti-Wolt Zero Waste nasvet:
+                                </h4>
+                                <p id="ai-recipe-zerowaste-text" class="text-slate-700 text-[11px] leading-relaxed">
+                                    Nasvet za zmanjšanje odpadkov.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Desna kolona: Postopek kuhanja po korakih -->
+                        <div class="lg:col-span-7 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                            <h4 class="text-xs font-bold text-slate-800 flex items-center uppercase tracking-wider mb-3">
+                                <i class="fa-solid fa-list-check text-emerald-600 mr-2"></i>
+                                Postopek priprave po korakih:
+                            </h4>
+                            <ol id="ai-recipe-steps" class="space-y-2.5 text-xs text-slate-700">
+                                <!-- Dinamično -->
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Noga kartice -->
+                    <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-500 gap-1">
+                        <div class="flex items-center text-emerald-700 font-medium">
+                            <i class="fa-solid fa-circle-check mr-1.5 text-emerald-600"></i>
+                            <span>Domač obrok za zmanjšanje zavržene hrane in prihranek pri dostavi</span>
+                        </div>
+                        <div id="ai-recipe-timestamp" class="text-slate-400"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Odsek 1: "Anti-Wolt" Primerjalnik (Domača kuhinja vs. Dostava/Gostinstvo) -->
         <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-2">

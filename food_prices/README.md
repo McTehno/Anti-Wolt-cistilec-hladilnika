@@ -48,18 +48,19 @@ food_prices/
 │
 ├── client.py            # Prenašalec podatkov iz SiStat PxWeb API (s samodejnim predpomnjenjem)
 ├── processor.py         # Razčlenjevalnik s pyaxis, kategorizacija, filtriranje in agregacije
-├── app.py               # REST API strežnik (Flask) s podporo za dinamične poizvedbe
+├── ai_advisor.py        # LLM storitev (OpenRouter / NVIDIA Nemotron 3 Ultra) & deserializacija v Python razred
+├── app.py               # REST API strežnik (Flask) s podporo za dinamične poizvedbe in AI recepte
 ├── requirements.txt     # Odvisnosti modula
 │
 ├── data/
 │   └── 0411005S.px      # Lokalno predpomnjena PCAXIS datoteka
 │
 ├── templates/
-│   └── index.html       # Spletni vmesnik nadzorne plošče (Dashboard)
+│   └── index.html       # Spletni vmesnik nadzorne plošče (Dashboard) z AI Chef obrazcem
 │
 └── static/
     ├── css/style.css    # Prilagojeni CSS stili
-    └── js/dashboard.js  # Dinamično pridobivanje (fetch) in upodabljanje Chart.js grafov
+    └── js/dashboard.js  # Dinamično pridobivanje (fetch), Chart.js grafi in krmiljenje AI asistenta
 ```
 
 ### Ključne metode obdelave podatkov (`processor.py`):
@@ -84,6 +85,23 @@ Vse končne točke vračajo podatke v standardnem formatu **JSON**:
 | `GET` | `/api/inflation` | Vrne živila z največjo stopnjo podražitve (parametri: `start_year`, `end_year`, `limit`). |
 | `GET` | `/api/comparison` | Vrne podatke za Anti-Wolt primerjalnik domače hrane proti dostavi. |
 | `POST` | `/api/refresh` | Prisilno osveži `.px` datoteko neposredno iz strežnika SURS/OPSI. |
+| `POST` | `/api/ai-recipe` | Dinamično generira recept iz ostankov prek LLM modela (OpenRouter) in vrne deserializiran JSON. |
+
+---
+
+## 5. Dinamična integracija z velikim jezikovnim modelom (LLM)
+
+Modul vključuje naprednega kulinaričnega asistenta **Anti-Wolt AI Chef**, ki izpolnjuje vse zahteve naloge za integracijo LLM:
+
+1. **Dinamični vprašalni poziv (Prompt):**
+   - Vprašanje ni statično, ampak ga aplikacija na strežniku sestavi dinamično na podlagi uporabnikovega vnosa (sestavine, razpoložljiv čas priprave, število porcij, tip obroka, prehranska omejitev) ter **konteksta okolja** (čas in dan v brskalniku).
+2. **Uporaba storitve OpenRouter:**
+   - Za klic se uporablja brezplačni model **`nvidia/nemotron-3-ultra-550b-a55b`** (prek OpenRouter Chat Completions API).
+   - API ključ je varno shranjen v korenski datoteki `.env` pod `OPENROUTER_API_KEY`.
+3. **Format JSON in deserializacija v Python razred:**
+   - Modelu je predpisana stroga JSON shema z `response_format={"type": "json_object"}`.
+   - Odgovor se na strani zaledja deserializira v namenski Python razred **`AiRecipeRecommendation`** (`food_prices/ai_advisor.py`).
+   - Razred vsebuje metode za varno pretvorbo tipov (`from_dict`) ter serijalizacijo v slovar (`to_dict`).
 
 ---
 
