@@ -49,8 +49,15 @@ food_prices/
 ├── client.py            # Prenašalec podatkov iz SiStat PxWeb API (s samodejnim predpomnjenjem)
 ├── processor.py         # Razčlenjevalnik s pyaxis, kategorizacija, filtriranje in agregacije
 ├── ai_advisor.py        # LLM storitev (OpenRouter / NVIDIA Nemotron 3 Ultra) & deserializacija v Python razred
-├── app.py               # REST API strežnik (Flask) s podporo za dinamične poizvedbe in AI recepte
+├── grpc_server.py       # Samostojni gRPC strežnik (AntiWoltService na portu 50051)
+├── grpc_client.py       # gRPC odjemalec (stub), ki ga uporablja Flask
+├── app.py               # Spletni strežnik (Flask) kot gRPC odjemalec + SSE most za brskalnik
 ├── requirements.txt     # Odvisnosti modula
+│
+├── protos/
+│   ├── anti_wolt.proto          # Definicija 1 storitve, podatkovnih tipov in 5 RPC klicev
+│   ├── anti_wolt_pb2.py         # Generirani Protobuf razredi
+│   └── anti_wolt_pb2_grpc.py    # Generirani gRPC nastavki (stub / servicer)
 │
 ├── data/
 │   └── 0411005S.px      # Lokalno predpomnjena PCAXIS datoteka
@@ -125,8 +132,16 @@ V korenski mapi projekta namestite zahtevane pakete:
 pip install -r food_prices/requirements.txt
 ```
 
-### 6.2 Zagon spletne aplikacije
-Aplikacijo zaženete z ukazom:
+### 6.2 Zagon gRPC strežnika in spletne aplikacije
+
+Aplikacija uporablja ločen gRPC strežnik (`0.0.0.0:50051`) in Flask spletni strežnik (`127.0.0.1:5000`), ki deluje kot gRPC odjemalec in SSE most za brskalnik.
+
+1. **V prvem terminalu zaženite gRPC strežnik:**
+```bash
+python -m food_prices.grpc_server
+```
+
+2. **V drugem terminalu zaženite Flask spletno aplikacijo:**
 ```bash
 python -m food_prices.app
 ```
@@ -135,9 +150,14 @@ ali neposredno:
 python food_prices/app.py
 ```
 
+*(Opcijsko – ponovno prevajanje `.proto` datoteke ob spremembah):*
+```bash
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. food_prices/protos/anti_wolt.proto
+```
+
 Aplikacija se zažene na lokalnem naslovu:
 👉 **[http://127.0.0.1:5000](http://127.0.0.1:5000)**
 
-Odprite povezavo v brskalniku za ogled dinamične nadzorne plošče.
+Odprite povezavo v brskalniku za ogled dinamične nadzorne plošče in realnočasovnega gRPC pretakanja.
 
 

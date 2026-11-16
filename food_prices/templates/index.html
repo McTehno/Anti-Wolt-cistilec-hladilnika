@@ -28,6 +28,11 @@
             </div>
 
             <div class="flex items-center space-x-3">
+                <span id="grpc-status-badge" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-200 border border-slate-600">
+                    <span id="grpc-status-dot" class="w-2 h-2 mr-1.5 bg-amber-400 rounded-full"></span>
+                    <span id="grpc-status-text">gRPC preverjam...</span>
+                </span>
+
                 <span id="data-status-badge" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-800 text-emerald-100 border border-emerald-600">
                     <span class="w-2 h-2 mr-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
                     Podatki povezani
@@ -430,6 +435,121 @@
                         <canvas id="chartInflation"></canvas>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Odsek 2.5: Realnočasovna obdelava podražitev po kategoriji (gRPC Server-Side Streaming + SSE) -->
+        <section class="bg-gradient-to-br from-white to-indigo-50/40 p-6 rounded-xl shadow-sm border border-indigo-200">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-indigo-100 gap-4">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                            <i class="fa-solid fa-bolt mr-1.5 text-indigo-600"></i> gRPC Server-Side Stream (v realnem času)
+                        </span>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center mt-1.5">
+                        Realnočasovna analiza podražitev po kategoriji
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Izberite kategorijo in obdobje: gRPC strežnik sproti obdeluje posamezna živila ter rezultate prek toka (SSE) v živo pošilja v preglednico.
+                    </p>
+                </div>
+
+                <!-- Kontrole za zagon toka -->
+                <div class="flex flex-wrap items-end gap-2.5">
+                    <div>
+                        <label for="stream-category" class="block text-[11px] font-semibold text-slate-600 mb-1">Kategorija:</label>
+                        <select id="stream-category" class="text-xs bg-white border border-slate-300 rounded-md px-2.5 py-1.5 max-w-[210px] focus:ring-2 focus:ring-indigo-500">
+                            <option value="Vse">Vse prehranske kategorije</option>
+                            <!-- Polnjeno dinamično -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="stream-start-year" class="block text-[11px] font-semibold text-slate-600 mb-1">Od leta:</label>
+                        <select id="stream-start-year" class="text-xs bg-white border border-slate-300 rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500">
+                            <!-- Polnjeno dinamično -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="stream-end-year" class="block text-[11px] font-semibold text-slate-600 mb-1">Do leta:</label>
+                        <select id="stream-end-year" class="text-xs bg-white border border-slate-300 rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500">
+                            <!-- Polnjeno dinamično -->
+                        </select>
+                    </div>
+
+                    <button type="button" id="btn-start-stream"
+                            class="inline-flex items-center px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow transition duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <i id="btn-stream-icon" class="fa-solid fa-play mr-1.5"></i>
+                        <span id="btn-stream-text">Zaženi gRPC Stream</span>
+                    </button>
+
+                    <button type="button" id="btn-stop-stream" disabled
+                            class="inline-flex items-center px-3 py-1.5 bg-slate-200 hover:bg-rose-100 hover:text-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 text-xs font-semibold rounded-md transition duration-150">
+                        <i class="fa-solid fa-stop mr-1"></i>
+                        <span>Ustavi</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vrstica napredka in sprotni KPI-ji pretakanja -->
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                <div class="bg-white rounded-lg border border-indigo-100 p-3">
+                    <div class="flex items-center justify-between text-xs mb-1.5">
+                        <span class="font-semibold text-slate-600">Napredek obdelave:</span>
+                        <span id="stream-progress-label" class="font-mono font-bold text-indigo-700">Pripravljen</span>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div id="stream-progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-150" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg border border-indigo-100 p-3 flex items-center justify-between">
+                    <div>
+                        <p class="text-[11px] font-semibold text-slate-500 uppercase">Sproten povprečni skok</p>
+                        <p class="text-[11px] text-slate-400">Posodablja se z vsakim paketom</p>
+                    </div>
+                    <p id="stream-running-avg" class="text-xl font-extrabold font-mono text-indigo-700">— %</p>
+                </div>
+
+                <div class="bg-white rounded-lg border border-indigo-100 p-3 flex items-center justify-between">
+                    <div class="min-w-0 pr-2">
+                        <p class="text-[11px] font-semibold text-slate-500 uppercase">Največja najdena rast</p>
+                        <p id="stream-top-name" class="text-xs font-semibold text-slate-700 truncate">Čakam na podatke...</p>
+                    </div>
+                    <p id="stream-top-pct" class="text-lg font-extrabold font-mono text-rose-600 whitespace-nowrap">— %</p>
+                </div>
+            </div>
+
+            <!-- Napaka toka (skrita privzeto) -->
+            <div id="stream-error-box" class="hidden mt-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg p-3 flex items-center">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                <span id="stream-error-text"></span>
+            </div>
+
+            <!-- Realnočasovna tabela prispelih zapisov -->
+            <div class="mt-4 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                <table class="min-w-full divide-y divide-slate-200 text-xs text-left">
+                    <thead class="bg-slate-100 font-semibold text-slate-700 uppercase tracking-wider sticky top-0 z-10">
+                        <tr>
+                            <th scope="col" class="px-3 py-2.5 w-12">#</th>
+                            <th scope="col" class="px-3 py-2.5">Živilo / Izdelek</th>
+                            <th scope="col" class="px-3 py-2.5">Enota</th>
+                            <th scope="col" class="px-3 py-2.5 text-right">Začetna cena</th>
+                            <th scope="col" class="px-3 py-2.5 text-right">Končna cena</th>
+                            <th scope="col" class="px-3 py-2.5 text-right">Razlika</th>
+                            <th scope="col" class="px-3 py-2.5 text-right">Podražitev (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stream-table-body" class="divide-y divide-slate-100 bg-white">
+                        <tr>
+                            <td colspan="7" class="text-center py-6 text-slate-400">
+                                Izberite kategorijo in kliknite <strong class="text-indigo-600">Zaženi gRPC Stream</strong> za prikaz obdelave v realnem času.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 

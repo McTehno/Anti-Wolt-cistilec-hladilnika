@@ -14,17 +14,21 @@ let chartComparisonInstance = null;
 let chartHistoryInstance = null;
 let chartInflationInstance = null;
 
-// Shranjeni metapodatki
+// Shranjeni metapodatki in aktivna SSE povezava za gRPC stream
 let appMetadata = null;
+let activeInflationStream = null;
 
 // Ob zagonu dokumenta (DOMContentLoaded)
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("Inicializacija nadzorne plošče Anti-Wolt ...");
 
-    // 1. Naloži začetne metapodatke (leta, kategorije)
-    await initMetadataAndFilters();
+    // 1. Naloži začetne metapodatke (leta, kategorije) in preveri gRPC povezavo
+    await Promise.all([
+        initMetadataAndFilters(),
+        checkGrpcStatus()
+    ]);
 
-    // 2. Dinamično napolni grafe in tabelo ob nalaganju
+    // 2. Dinamično napolni grafe in tabelo ob nalaganju (podatki pridejo prek gRPC)
     const defaultYear = appMetadata && appMetadata.years ? appMetadata.years[appMetadata.years.length - 1] : 2025;
 
     await Promise.all([
@@ -34,9 +38,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadFilteredPrices()
     ]);
 
-    // 3. Poveži poslušalce dogodkov za interaktivno filtriranje
+    // 3. Poveži poslušalce dogodkov za interaktivno filtriranje in gRPC pretakanje
     setupEventListeners();
 });
+
+/**
+ * Preveri dosegljivost gRPC strežnika in posodobi značko stanja v glavi strani.
+ */
+async function checkGrpcStatus() {
+    const badge = document.getElementById('grpc-status-badge');
+    const dot = document.getElementById('grpc-status-dot');
+    const text = document.getElementById('grpc-status-text');
+    if (!badge || !dot || !text) return;
+
+    try {
+        const resp = await fetch('/api/grpc-status');
+        const json = await resp.json();
+
+        if (json.connected) {
+            badge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-900/90 text-indigo-100 border border-indigo-400';
+            dot.className = 'w-2 h-2 mr-1.5 bg-indigo-300 rounded-full animate-pulse';
+            text.textContent = `gRPC (${json.target})`;
+        } else {
+            badge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-rose-900/90 text-rose-100 border border-rose-500';
+            dot.className = 'w-2 h-2 mr-1.5 bg-rose-400 rounded-full';
+            text.textContent = 'gRPC nedosegljiv';
+        }
+    } catch (err) {
+        console.error("Napaka pri preverjanju gRPC stanja:", err);
+        text.textContent = 'gRPC napaka';
+    }
+}
 
 /**
  * Pridobi metapodatke o tabeli ter inicializira spustne sezname (dropdown-e).
@@ -60,25 +92,38 @@ async function initMetadataAndFilters() {
             document.getElementById('kpi-years-range').textContent = `${minYear} – ${maxYear}`;
         }
 
-        // Napolni izbirnik let za primerjalnik in tabelo
+        // Napolni izbirnik let za primerjalnik, tabelo in realnočasovni gRPC stream
         const yearSelectComp = document.getElementById('comparison-year-select');
         const yearSelectFilter = document.getElementById('filter-year');
+        const streamStartYear = document.getElementById('stream-start-year');
+        const streamEndYear = document.getElementById('stream-end-year');
         yearSelectComp.innerHTML = '';
         yearSelectFilter.innerHTML = '';
+        if (streamStartYear) streamStartYear.innerHTML = '';
+        if (streamEndYear) streamEndYear.innerHTML = '';
 
         appMetadata.years.slice().reverse().forEach(y => {
-            const opt1 = new Option(y, y);
-            const opt2 = new Option(y, y);
-            yearSelectComp.add(opt1);
-            yearSelectFilter.add(opt2);
+            yearSelectComp.add(new Option(y, y));
+            yearSelectFilter.add(new Option(y, y));
+            if (streamEndYear) streamEndYear.add(new Option(y, y));
         });
 
-        // Napolni izbirnik kategorij za tabelo
+        appMetadata.years.forEach(y => {
+            if (streamStartYear) streamStartYear.add(new Option(y, y));
+        });
+
+        // Napolni izbirnik kategorij za tabelo in za gRPC stream
         const catSelect = document.getElementById('filter-category');
+        const streamCatSelect = document.getElementById('stream-category');
         catSelect.innerHTML = '<option value="Vse">Vse prehranske kategorije</option>';
+        if (streamCatSelect) {
+            streamCatSelect.innerHTML = '<option value="Vse">Vse prehranske kategorije</option>';
+        }
         appMetadata.food_categories.forEach(cat => {
-            const opt = new Option(cat, cat);
-            catSelect.add(opt);
+            catSelect.add(new Option(cat, cat));
+            if (streamCatSelect) {
+                streamCatSelect.add(new Option(cat, cat));
+            }
         });
 
         // Napolni začetni nabor izdelkov za zgodovino
@@ -429,7 +474,7 @@ async function loadFilteredPrices() {
         const res = await response.json();
 
         if (res.status !== 'success') {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-rose-500 py-4">Napaka pri pridobivanju podatkov.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-rose-500 py-4">${escapeHtml(res.message || 'Napaka pri pridobivanju podatkov.')}</td></tr>`;
             return;
         }
 
@@ -541,6 +586,9 @@ function setupEventListeners() {
 
     // 5. Inicializacija in povezava AI Kulinaričnega asistenta (LLM)
     initAiAdvisor();
+
+    // 6. Povezava realnočasovnega gRPC streaming pregleda podražitev (SSE / EventSource)
+    initInflationStream();
 }
 
 /**
@@ -767,5 +815,167 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
+
+/**
+ * Inicializira gumb za realnočasovno pretakanje podražitev po kategoriji prek
+ * gRPC Server-Side Streaming (Flask SSE most + brskalniški EventSource).
+ */
+function initInflationStream() {
+    const btnStart = document.getElementById('btn-start-stream');
+    const btnStop = document.getElementById('btn-stop-stream');
+    const btnIcon = document.getElementById('btn-stream-icon');
+    const btnText = document.getElementById('btn-stream-text');
+    const catSelect = document.getElementById('stream-category');
+    const startSelect = document.getElementById('stream-start-year');
+    const endSelect = document.getElementById('stream-end-year');
+    const progressLabel = document.getElementById('stream-progress-label');
+    const progressBar = document.getElementById('stream-progress-bar');
+    const runningAvgEl = document.getElementById('stream-running-avg');
+    const topNameEl = document.getElementById('stream-top-name');
+    const topPctEl = document.getElementById('stream-top-pct');
+    const errorBox = document.getElementById('stream-error-box');
+    const errorText = document.getElementById('stream-error-text');
+    const tbody = document.getElementById('stream-table-body');
+
+    if (!btnStart || !btnStop || !tbody) return;
+
+    function setStreamingUi(isRunning) {
+        btnStart.disabled = isRunning;
+        btnStop.disabled = !isRunning;
+        if (isRunning) {
+            btnIcon.className = 'fa-solid fa-spinner fa-spin mr-1.5';
+            btnText.textContent = 'Pretakanje ...';
+        } else {
+            btnIcon.className = 'fa-solid fa-play mr-1.5';
+            btnText.textContent = 'Zaženi gRPC Stream';
+        }
+    }
+
+    function stopActiveStream(statusLabel) {
+        if (activeInflationStream) {
+            activeInflationStream.close();
+            activeInflationStream = null;
+        }
+        setStreamingUi(false);
+        if (statusLabel) {
+            progressLabel.textContent = statusLabel;
+        }
+    }
+
+    function showStreamError(message) {
+        errorText.textContent = message;
+        errorBox.classList.remove('hidden');
+    }
+
+    btnStop.addEventListener('click', () => {
+        stopActiveStream('Ustavljeno s strani uporabnika');
+    });
+
+    btnStart.addEventListener('click', () => {
+        // Če je prejšnji tok še odprt, ga najprej varno zapremo
+        stopActiveStream();
+
+        const category = catSelect.value;
+        const startYear = parseInt(startSelect.value, 10);
+        const endYear = parseInt(endSelect.value, 10);
+
+        errorBox.classList.add('hidden');
+        if (startYear >= endYear) {
+            showStreamError('Začetno leto mora biti manjše od končnega leta.');
+            return;
+        }
+
+        // Ponastavimo UI stanje pred prihodom prvih paketov
+        tbody.innerHTML = '';
+        progressBar.style.width = '0%';
+        progressLabel.textContent = 'Povezujem z gRPC ...';
+        runningAvgEl.textContent = '— %';
+        topNameEl.textContent = 'Čakam na prvi paket...';
+        topPctEl.textContent = '— %';
+        setStreamingUi(true);
+
+        let bestItem = null;
+        let receivedAny = false;
+
+        const url = `/api/stream/category-inflation?category=${encodeURIComponent(category)}&start_year=${startYear}&end_year=${endYear}&delay_ms=110`;
+        const source = new EventSource(url);
+        activeInflationStream = source;
+
+        source.onmessage = (event) => {
+            receivedAny = true;
+            const payload = JSON.parse(event.data);
+            const item = payload.item;
+            const processed = payload.processed_count;
+            const total = payload.total_count;
+            const pctDone = total > 0 ? Math.round((processed / total) * 100) : 100;
+
+            progressBar.style.width = `${pctDone}%`;
+            progressLabel.textContent = `${processed} / ${total} (${pctDone} %)`;
+
+            const avgSign = payload.running_avg_pct >= 0 ? '+' : '';
+            runningAvgEl.textContent = `${avgSign}${payload.running_avg_pct.toFixed(1)} %`;
+
+            if (!bestItem || item.diff_pct > bestItem.diff_pct) {
+                bestItem = item;
+                topNameEl.textContent = item.product_name;
+                const bestSign = item.diff_pct >= 0 ? '+' : '';
+                topPctEl.textContent = `${bestSign}${item.diff_pct.toFixed(1)} %`;
+            }
+
+            const sign = item.diff_pct >= 0 ? '+' : '';
+            const badgeColor = item.diff_pct >= 0
+                ? 'bg-rose-100 text-rose-700'
+                : 'bg-emerald-100 text-emerald-700';
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-indigo-50/50 transition';
+            tr.innerHTML = `
+                <td class="px-3 py-2 font-mono text-slate-400">${processed}</td>
+                <td class="px-3 py-2 font-medium text-slate-800">${escapeHtml(item.product_name)}</td>
+                <td class="px-3 py-2 font-mono text-slate-500">${escapeHtml(item.unit)}</td>
+                <td class="px-3 py-2 text-right font-mono text-slate-600">${item.start_price.toFixed(2)} €</td>
+                <td class="px-3 py-2 text-right font-mono font-semibold text-slate-800">${item.end_price.toFixed(2)} €</td>
+                <td class="px-3 py-2 text-right font-mono text-slate-700">${sign}${item.diff_eur.toFixed(2)} €</td>
+                <td class="px-3 py-2 text-right">
+                    <span class="inline-block px-2 py-0.5 rounded font-mono font-bold ${badgeColor}">
+                        ${sign}${item.diff_pct.toFixed(1)} %
+                    </span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        };
+
+        source.addEventListener('done', () => {
+            if (!receivedAny) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400">Za izbrano kombinacijo kategorije in letnic ni podatkov.</td></tr>`;
+                progressLabel.textContent = '0 zapisov';
+            } else {
+                progressBar.style.width = '100%';
+            }
+            stopActiveStream();
+        });
+
+        source.addEventListener('stream_error', (event) => {
+            let msg = 'Napaka pri gRPC pretakanju podatkov.';
+            try {
+                const errData = JSON.parse(event.data);
+                if (errData.message) msg = errData.message;
+            } catch (_) {
+                // Uporabi privzeto sporočilo
+            }
+            showStreamError(msg);
+            stopActiveStream('Napaka');
+        });
+
+        source.onerror = () => {
+            // Če se EventSource nepričakovano prekine (npr. strežnik ugasnjen), ustavimo samodejni ponovni poskus
+            if (activeInflationStream === source) {
+                showStreamError('Povezava s strežnikom SSE/gRPC je bila prekinjena. Preverite, ali tečeta oba strežnika.');
+                stopActiveStream('Prekinjeno');
+            }
+        };
+    });
+}
+
 
 

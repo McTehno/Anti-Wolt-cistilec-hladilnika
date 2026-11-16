@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package anti_wolt;
+
+// Predstavlja posamezen cenovni zapis živila ali storitve iz baze SURS/OPSI.
+message FoodPriceItem {
+  string product_raw = 1;
+  string product_name = 2;
+  string unit = 3;
+  string category = 4;
+  int32 year = 5;
+  double price_eur = 6;
+}
+
+// Predstavlja primerjavo stroška domače priprave obroka napram dostavi/gostinstvu.
+message MealComparison {
+  string meal = 1;
+  string home_title = 2;
+  double home_cost = 3;
+  string restaurant_title = 4;
+  double restaurant_cost = 5;
+  double savings_eur = 6;
+  double savings_pct = 7;
+}
+
+// Predstavlja podatek o podražitvi (inflaciji) posameznega živila med dvema letoma.
+message InflationItem {
+  string product_name = 1;
+  string unit = 2;
+  string category = 3;
+  double start_price = 4;
+  double end_price = 5;
+  double diff_eur = 6;
+  double diff_pct = 7;
+}
+
+//Requests and responses
+
+// 1. Filtrirane cene živil
+message PriceFilterRequest {
+  string category = 1;
+  int32 year = 2;          // 0 pomeni zadnje razpoložljivo leto
+  string search = 3;
+  bool only_food = 4;
+}
+
+message PriceListResponse {
+  int32 count = 1;
+  int32 resolved_year = 2;
+  repeated FoodPriceItem items = 3;
+}
+
+// 2. Zgodovina cen izbranega živila
+message ProductHistoryRequest {
+  string product = 1;
+}
+
+message ProductHistoryResponse {
+  bool found = 1;
+  string query = 2;
+  string product_name = 3;
+  string unit = 4;
+  string category = 5;
+  repeated int32 years = 6;
+  repeated double prices = 7;
+  int32 start_year = 8;
+  int32 end_year = 9;
+  double start_price = 10;
+  double end_price = 11;
+  double diff_eur = 12;
+  double diff_pct = 13;
+}
+
+// 3. Anti-Wolt primerjava (domača kuhinja vs. gostinstvo/dostava)
+message ComparisonRequest {
+  int32 year = 1;          // 0 pomeni privzeto leto (2025)
+}
+
+message ComparisonResponse {
+  int32 year = 1;
+  repeated MealComparison comparisons = 2;
+  double average_savings_pct = 3;
+}
+
+// 4. Rekorderji inflacije
+message InflationRequest {
+  int32 start_year = 1;
+  int32 end_year = 2;
+  int32 limit = 3;
+}
+
+message InflationResponse {
+  string period = 1;
+  repeated InflationItem items = 2;
+}
+
+// 5. Realnočasovni tok (Server-Side Streaming) analize podražitev po kategoriji
+message CategoryInflationStreamRequest {
+  string category = 1;     // Prazno ali "Vse" pomeni vse prehranske kategorije
+  int32 start_year = 2;
+  int32 end_year = 3;
+  int32 delay_ms = 4;      // Neobvezen zamik (ms) za vizualizacijo sprotnega pretakanja
+}
+
+message CategoryInflationEvent {
+  InflationItem item = 1;
+  int32 processed_count = 2;
+  int32 total_count = 3;
+  double running_avg_pct = 4;
+}
+
+// ============================================================================
+// STORITEV (1 gRPC service s 5 RPC klici: 4 unary + 1 server-side streaming)
+// ============================================================================
+
+service AntiWoltService {
+  // Pridobi filtrirane cene živil za izbrano leto, kategorijo in iskalni niz
+  rpc GetFilteredPrices (PriceFilterRequest) returns (PriceListResponse);
+
+  // Pridobi časovno serijo cen posameznega živila (2018-2025)
+  rpc GetProductHistory (ProductHistoryRequest) returns (ProductHistoryResponse);
+
+  // Pridobi Anti-Wolt primerjavo domače priprave napram dostavi/gostinstvu
+  rpc GetAntiWoltComparison (ComparisonRequest) returns (ComparisonResponse);
+
+  // Pridobi seznam živil z največjo odstotno podražitvijo v obdobju
+  rpc GetInflationLeaders (InflationRequest) returns (InflationResponse);
+
+  // Pretoči (streama) analizo podražitev za vsa živila izbrane kategorije v realnem času
+  rpc StreamCategoryInflation (CategoryInflationStreamRequest) returns (stream CategoryInflationEvent);
+}

@@ -12,12 +12,21 @@ Aplikacija omogoča:
 """
 
 import os
+import sys
+import json
 import logging
-from flask import Flask, render_template, jsonify, request
+import grpc
+from flask import Flask, render_template, jsonify, request, Response, stream_with_context
 
-from .processor import PriceDataProcessor
-from .client import SiStatClient
-from .ai_advisor import OpenRouterAiService, AiRecipeRecommendation
+# Zagotovimo delovanje tako pri `python -m food_prices.app` kot pri `python food_prices/app.py`
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from food_prices.processor import PriceDataProcessor
+from food_prices.client import SiStatClient
+from food_prices.ai_advisor import OpenRouterAiService, AiRecipeRecommendation
+from food_prices.grpc_client import AntiWoltGrpcClient
 
 # Konfiguracija beleženja
 logging.basicConfig(level=logging.INFO)
@@ -31,18 +40,49 @@ app = Flask(
     static_folder=os.path.join(BASE_DIR, "static")
 )
 
-# Inicializacija globalnega procesorja podatkov in AI svetovalne storitve
+# Inicializacija procesorja za metapodatke/osveževanje, AI storitve ter gRPC odjemalca (stub)
 processor = PriceDataProcessor()
 ai_service = OpenRouterAiService()
+grpc_client = AntiWoltGrpcClient()
+
+
+def _format_grpc_error(err: grpc.RpcError) -> tuple[str, int]:
+    """Pretvori gRPC napako v berljivo slovensko sporočilo in ustrezno HTTP statusno kodo."""
+    code = err.code()
+    details = err.details() or str(err)
+    if code == grpc.StatusCode.UNAVAILABLE or (
+        code == grpc.StatusCode.DEADLINE_EXCEEDED and not grpc_client.is_available(timeout=0.2)
+    ):
+        return (
+            f"gRPC strežnik ({grpc_client.target}) ni dosegljiv. "
+            "Zaženite ga z ukazom: python -m food_prices.grpc_server",
+            503,
+        )
+    if code == grpc.StatusCode.DEADLINE_EXCEEDED:
+        return (f"Časovna omejitev gRPC klica je potekla ({details}).", 504)
+    if code == grpc.StatusCode.INVALID_ARGUMENT:
+        return (details, 400)
+    return (f"gRPC napaka ({code.name}): {details}", 500)
 
 
 @app.route('/')
 def index():
     """
     Vstopna točka: naloži glavno spletno stran z nadzorno ploščo.
-    Vsi podatki in grafi se nato dinamično napolnijo prek JavaScript fetch klicev.
+    Vsi podatki in grafi se nato dinamično napolnijo prek JavaScript fetch / SSE klicev.
     """
     return render_template('index.html')
+
+
+@app.route('/api/grpc-status', methods=['GET'])
+def get_grpc_status():
+    """REST API: Preveri, ali je povezani gRPC strežnik na portu 50051 dosegljiv."""
+    available = grpc_client.is_available()
+    return jsonify({
+        "status": "success",
+        "connected": available,
+        "target": grpc_client.target,
+    })
 
 
 @app.route('/api/metadata', methods=['GET'])
@@ -61,7 +101,7 @@ def get_metadata():
 @app.route('/api/prices', methods=['GET'])
 def get_prices():
     """
-    REST API: Vrne filtrirane cene izdelkov.
+    REST -> gRPC (GetFilteredPrices): Vrne filtrirane cene izdelkov prek gRPC strežnika.
     Podpira poizvedbene parametre (query params):
     - category: kategorija živila (npr. '01.1.2 MESO' ali 'Vse')
     - year: leto (npr. 2025)
@@ -74,7 +114,7 @@ def get_prices():
 
         year = int(year_str) if year_str and year_str.isdigit() else None
 
-        records = processor.get_filtered_prices(
+        result = grpc_client.get_filtered_prices(
             category=category,
             year=year,
             search=search,
@@ -83,14 +123,19 @@ def get_prices():
 
         return jsonify({
             "status": "success",
-            "count": len(records),
+            "transport": "gRPC",
+            "count": result["count"],
             "filters": {
                 "category": category,
-                "year": year or processor.df_clean['LETO'].max(),
+                "year": result["resolved_year"],
                 "search": search
             },
-            "data": records
+            "data": result["data"]
         })
+    except grpc.RpcError as err:
+        msg, status_code = _format_grpc_error(err)
+        logger.error(f"gRPC napaka pri /api/prices: {msg}")
+        return jsonify({"status": "error", "message": msg}), status_code
     except Exception as e:
         logger.error(f"Napaka pri pridobivanju cen: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -99,14 +144,18 @@ def get_prices():
 @app.route('/api/history', methods=['GET'])
 def get_history():
     """
-    REST API: Vrne časovno vrsto gibanja cen (2018-2025) za izbrani izdelek.
+    REST -> gRPC (GetProductHistory): Vrne časovno vrsto gibanja cen (2018-2025) za izbrani izdelek.
     Parameter:
     - product: ime izdelka (npr. 'Riž, beli' ali 'Testenine')
     """
     try:
         product_query = request.args.get('product', 'Testenine')
-        history_data = processor.get_product_history(product_query)
-        return jsonify({"status": "success", "data": history_data})
+        history_data = grpc_client.get_product_history(product_query)
+        return jsonify({"status": "success", "transport": "gRPC", "data": history_data})
+    except grpc.RpcError as err:
+        msg, status_code = _format_grpc_error(err)
+        logger.error(f"gRPC napaka pri /api/history: {msg}")
+        return jsonify({"status": "error", "message": msg}), status_code
     except Exception as e:
         logger.error(f"Napaka pri pridobivanju zgodovine za '{request.args.get('product')}': {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -129,7 +178,7 @@ def get_categories_trend():
 @app.route('/api/inflation', methods=['GET'])
 def get_inflation():
     """
-    REST API: Vrne izdelke z največjo odstotno podražitvijo.
+    REST -> gRPC (GetInflationLeaders): Vrne izdelke z največjo odstotno podražitvijo.
     Parametra:
     - start_year (privzeto 2018)
     - end_year (privzeto 2025)
@@ -140,12 +189,17 @@ def get_inflation():
         end_year = int(request.args.get('end_year', 2025))
         limit = int(request.args.get('limit', 8))
 
-        inflation_data = processor.get_inflation_leaders(start_year, end_year, limit)
+        inflation_res = grpc_client.get_inflation_leaders(start_year, end_year, limit)
         return jsonify({
             "status": "success",
-            "period": f"{start_year} - {end_year}",
-            "data": inflation_data
+            "transport": "gRPC",
+            "period": inflation_res["period"],
+            "data": inflation_res["data"]
         })
+    except grpc.RpcError as err:
+        msg, status_code = _format_grpc_error(err)
+        logger.error(f"gRPC napaka pri /api/inflation: {msg}")
+        return jsonify({"status": "error", "message": msg}), status_code
     except Exception as e:
         logger.error(f"Napaka pri izračunu inflacije: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -154,18 +208,66 @@ def get_inflation():
 @app.route('/api/comparison', methods=['GET'])
 def get_comparison():
     """
-    REST API: Vrne primerjavo cen za koncept Anti-Wolt (domača kuhinja vs. dostava/gostinstvo).
+    REST -> gRPC (GetAntiWoltComparison): Vrne primerjavo cen za koncept Anti-Wolt.
     Parameter:
     - year (privzeto 2025)
     """
     try:
         year_str = request.args.get('year', '2025')
         year = int(year_str) if year_str.isdigit() else 2025
-        comparison_data = processor.get_anti_wolt_comparison(year)
-        return jsonify({"status": "success", "data": comparison_data})
+        comparison_data = grpc_client.get_anti_wolt_comparison(year)
+        return jsonify({"status": "success", "transport": "gRPC", "data": comparison_data})
+    except grpc.RpcError as err:
+        msg, status_code = _format_grpc_error(err)
+        logger.error(f"gRPC napaka pri /api/comparison: {msg}")
+        return jsonify({"status": "error", "message": msg}), status_code
     except Exception as e:
         logger.error(f"Napaka pri pridobivanju Anti-Wolt primerjave: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/stream/category-inflation', methods=['GET'])
+def stream_category_inflation_sse():
+    """
+    SSE most za gRPC Server-Side Streaming (`StreamCategoryInflation`).
+    Brskalnik se poveže prek `EventSource`, Flask pa sproti bere binarni gRPC tok
+    in vsak prejeti izdelek takoj odda kot `text/event-stream` dogodek v realnem času.
+    """
+    category = request.args.get('category', 'Vse')
+    try:
+        start_year = int(request.args.get('start_year', 2018))
+        end_year = int(request.args.get('end_year', 2025))
+        delay_ms = int(request.args.get('delay_ms', 120))
+    except ValueError:
+        return jsonify({"status": "error", "message": "Letnici in zamik morata biti celi števili."}), 400
+
+    def event_generator():
+        try:
+            for event_payload in grpc_client.stream_category_inflation(
+                category=category,
+                start_year=start_year,
+                end_year=end_year,
+                delay_ms=delay_ms,
+            ):
+                yield f"data: {json.dumps(event_payload, ensure_ascii=False)}\n\n"
+            # Zaključni dogodek prepreči samodejno ponovno povezovanje v brskalniku
+            yield f"event: done\ndata: {json.dumps({'completed': True})}\n\n"
+        except grpc.RpcError as err:
+            msg, _ = _format_grpc_error(err)
+            logger.error(f"gRPC stream napaka: {msg}")
+            yield f"event: stream_error\ndata: {json.dumps({'message': msg}, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            logger.error(f"Nepričakovana napaka med pretakanjem SSE: {exc}")
+            yield f"event: stream_error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
+
+    return Response(
+        stream_with_context(event_generator()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+        },
+    )
 
 
 @app.route('/api/refresh', methods=['POST'])

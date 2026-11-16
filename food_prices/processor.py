@@ -280,40 +280,74 @@ class PriceDataProcessor:
             "series": series
         }
 
-    def get_inflation_leaders(self, start_year: int = 2018, end_year: int = 2025, limit: int = 8) -> List[Dict[str, Any]]:
+    def _compute_inflation_items(
+        self,
+        start_year: int = 2018,
+        end_year: int = 2025,
+        category: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
-        Agregacija in razvrščanje: Poišče izdelke z največjo odstotno podražitvijo (rekorderje inflacije)
-        med izbranima letoma.
+        Skupna pomožna metoda za izračun absolutnih in odstotnih sprememb cen izdelkov
+        med dvema letoma, z neobveznim filtriranjem po prehranski kategoriji.
         """
-        df_start = self.df_clean[self.df_clean['LETO'] == start_year][['IZDELEK_IME', 'ENOTA', 'KATEGORIJA', 'CENA_EUR']]
-        df_end = self.df_clean[self.df_clean['LETO'] == end_year][['IZDELEK_IME', 'CENA_EUR']]
+        df_start = (
+            self.df_clean[self.df_clean['LETO'] == start_year][['IZDELEK_IME', 'ENOTA', 'KATEGORIJA', 'CENA_EUR']]
+            .rename(columns={'CENA_EUR': 'start_price'})
+        )
+        df_end = (
+            self.df_clean[self.df_clean['LETO'] == end_year][['IZDELEK_IME', 'CENA_EUR']]
+            .rename(columns={'CENA_EUR': 'end_price'})
+        )
 
-        merged = pd.merge(df_start, df_end, on='IZDELEK_IME', suffixes=(f'_{start_year}', f'_{end_year}'))
-        
-        # Omejimo se na prehranske izdelke in gostinstvo
+        # Eksplicitni imeni stolpcev pred združitvijo preprečita trk imen tudi ob enakih letnicah
+        merged = pd.merge(df_start, df_end, on='IZDELEK_IME')
+
+        # Omejimo se na prehranske izdelke in gostinstvo (ali na izbrano kategorijo)
         merged = merged[merged['KATEGORIJA'].str.contains(r'^(?:01\.|02\.1|11\.1)', regex=True, na=False)]
+        if category and category != "Vse":
+            merged = merged[merged['KATEGORIJA'].str.contains(re.escape(category), case=False, na=False)]
 
-        col_start = f'CENA_EUR_{start_year}'
-        col_end = f'CENA_EUR_{end_year}'
+        # Izločimo zapise z začetno ceno <= 0, da preprečimo deljenje z nič
+        merged = merged[merged['start_price'] > 0].copy()
+        if merged.empty:
+            return []
 
-        merged['diff_eur'] = merged[col_end] - merged[col_start]
-        merged['diff_pct'] = ((merged[col_end] - merged[col_start]) / merged[col_start]) * 100
+        merged['diff_eur'] = merged['end_price'] - merged['start_price']
+        merged['diff_pct'] = (merged['diff_eur'] / merged['start_price']) * 100
 
-        top_risers = merged.sort_values(by='diff_pct', ascending=False).head(limit)
+        sorted_df = merged.sort_values(by='diff_pct', ascending=False)
 
         result = []
-        for _, row in top_risers.iterrows():
+        for _, row in sorted_df.iterrows():
             result.append({
                 "product_name": row['IZDELEK_IME'],
                 "unit": row['ENOTA'],
                 "category": row['KATEGORIJA'],
-                "start_price": round(float(row[col_start]), 2),
-                "end_price": round(float(row[col_end]), 2),
+                "start_price": round(float(row['start_price']), 2),
+                "end_price": round(float(row['end_price']), 2),
                 "diff_eur": round(float(row['diff_eur']), 2),
                 "diff_pct": round(float(row['diff_pct']), 1)
             })
 
         return result
+
+    def get_inflation_leaders(self, start_year: int = 2018, end_year: int = 2025, limit: int = 8) -> List[Dict[str, Any]]:
+        """
+        Agregacija in razvrščanje: Poišče izdelke z največjo odstotno podražitvijo (rekorderje inflacije)
+        med izbranima letoma.
+        """
+        return self._compute_inflation_items(start_year=start_year, end_year=end_year)[:limit]
+
+    def get_category_inflation_items(
+        self,
+        category: Optional[str] = None,
+        start_year: int = 2018,
+        end_year: int = 2025
+    ) -> List[Dict[str, Any]]:
+        """
+        Vrne izračun podražitev za vse izdelke izbrane prehranske kategorije (uporabno za gRPC streaming).
+        """
+        return self._compute_inflation_items(start_year=start_year, end_year=end_year, category=category)
 
     def get_anti_wolt_comparison(self, year: int = 2025) -> Dict[str, Any]:
         """

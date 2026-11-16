@@ -270,3 +270,29 @@ Namesto statičnih receptov uporabnik v spletni vmesnik vnese sestavine, ki jih 
 - **Vhod (JSON):** `{"ingredients": "...", "max_time": 20, "servings": 2, "meal_type": "...", "diet": "...", "client_context": "..."}`
 - **Izhod (JSON):** Deserializiran objekt razreda `AiRecipeRecommendation`.
 
+---
+
+## 11. Praktična naloga: Komunikacija prek protokola gRPC in realnočasovno pretakanje
+
+V sklopu naloge za RPC komunikacijo je v modulu `food_prices/` implementiran samostojen **gRPC strežnik** z binarno serializacijo **Protocol Buffers** (`proto3`), s katerim Flask aplikacija komunicira kot gRPC odjemalec (stub), realnočasovni tok pa brskalniku posreduje prek **SSE (`EventSource`)**.
+
+### 11.1 Definicija vmesnika ([`food_prices/protos/anti_wolt.proto`](food_prices/protos/anti_wolt.proto))
+- **1 storitev:** `AntiWoltService` (teče na portu `50051`).
+- **Podatkovni tipi (`message`):** `FoodPriceItem`, `MealComparison`, `InflationItem` ter pripadajoča sporočila zahtevkov, odgovorov in dogodkov (`CategoryInflationEvent`).
+- **5 RPC klicev (4 unary + 1 server-side streaming):**
+  1. `GetFilteredPrices` (unary): filtriranje cen živil po kategoriji, letu in iskalnem nizu.
+  2. `GetProductHistory` (unary): zgodovina gibanja cene izbranega živila (2018–2025).
+  3. `GetAntiWoltComparison` (unary): primerjava domače priprave obroka z gostinstvom/dostavo.
+  4. `GetInflationLeaders` (unary): lestvica živil z največjo podražitvijo.
+  5. `StreamCategoryInflation` (server-side streaming): sprotna analiza podražitev po izbrani kategoriji in časovnem obdobju ter pošiljanje rezultatov v realnem času.
+
+### 11.2 Zagon
+```bash
+# Terminal 1: gRPC strežnik (port 50051)
+python -m food_prices.grpc_server
+
+# Terminal 2: Flask spletni vmesnik + gRPC odjemalec (port 5000)
+python -m food_prices.app
+```
+
+
